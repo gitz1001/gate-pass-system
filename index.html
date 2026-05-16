@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PGP — Permanent Gate Pass System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a1628;
+    --navy-mid: #112240;
+    --navy-light: #1d3461;
+    --accent: #00c2a8;
+    --accent-dim: #009e88;
+    --accent-glow: rgba(0,194,168,0.15);
+    --gold: #f5c842;
+    --red: #ff4d6d;
+    --red-dim: rgba(255,77,109,0.15);
+    --green: #39d98a;
+    --green-dim: rgba(57,217,138,0.12);
+    --text: #e8f0fe;
+    --text-muted: #8899aa;
+    --border: rgba(0,194,168,0.2);
+    --card-bg: rgba(17,34,64,0.8);
+    --font: 'Sora', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(0,194,168,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(29,52,97,0.4) 0%, transparent 50%);
+  }
+  header {
+    background: rgba(10,22,40,0.95);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .logo-badge {
+    background: var(--accent);
+    color: var(--navy);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.12em;
+  }
+  .school-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+  nav {
+    display: flex;
+    gap: 4px;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  nav button:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  nav button.active { color: var(--accent); background: var(--accent-glow); }
+
+  .page { display: none; padding: 2.5rem 2rem; max-width: 1100px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    backdrop-filter: blur(8px);
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  /* ── FORM ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  input, select, textarea {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); background: rgba(0,194,168,0.06); }
+  select option { background: var(--navy-mid); }
+  .btn {
+    padding: 11px 24px;
+    border-radius: 10px;
+    border: none;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--navy);
+  }
+  .btn-primary:hover { background: var(--accent-dim); transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red); color: white; }
+
+  /* ── STUDENT TABLE ── */
+  .table-wrap { overflow-x: auto; margin-top: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  td { padding: 12px 14px; border-bottom: 1px solid rgba(0,194,168,0.07); }
+  tr:hover td { background: rgba(0,194,168,0.04); }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+  .badge-active { background: var(--green-dim); color: var(--green); border: 1px solid rgba(57,217,138,0.3); }
+  .badge-grade { background: rgba(0,194,168,0.1); color: var(--accent); border: 1px solid var(--border); }
+
+  /* ── SCANNER ── */
+  .scanner-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  #video-wrap {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 1;
+  }
+  #video-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .scan-frame {
+    width: 60%;
+    height: 60%;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+    animation: scan-pulse 2s ease-in-out infinite;
+  }
+  @keyframes scan-pulse {
+    0%, 100% { border-color: var(--accent); }
+    50% { border-color: var(--gold); }
+  }
+  .scan-line {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan-line 2s linear infinite;
+  }
+  @keyframes scan-line {
+    0% { top: 20%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 80%; opacity: 0; }
+  }
+  .scan-status {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ── RESULT CARD ── */
+  #result-panel { min-height: 400px; display: flex; flex-direction: column; justify-content: center; }
+  .result-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--text-muted);
+    text-align: center;
+    flex: 1;
+  }
+  .result-idle svg { opacity: 0.25; }
+  .result-card { display: none; }
+  .result-card.show { display: block; animation: fade-in 0.4s ease; }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .student-photo-area {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .student-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .student-name { font-size: 20px; font-weight: 700; line-height: 1.2; }
+  .student-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-item label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .info-item .val { font-size: 14px; font-weight: 600; margin-top: 3px; color: var(--text); }
+  .status-bar {
+    margin-top: 1.25rem;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-bar.valid { background: var(--green-dim); border: 1px solid rgba(57,217,138,0.3); color: var(--green); }
+  .status-bar.invalid { background: var(--red-dim); border: 1px solid rgba(255,77,109,0.3); color: var(--red); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; animation: blink 1s ease-in-out infinite; }
+  .dot.green { background: var(--green); }
+  .dot.red { background: var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── DIGITAL ID CARD ── */
+  .id-card-wrap { text-align: center; }
+  .id-card {
+    display: inline-block;
+    width: 340px;
+    background: linear-gradient(145deg, #112240, #0a1628);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.5);
+    position: relative;
+  }
+  .id-card-header {
+    background: var(--accent);
+    padding: 14px 20px;
+    text-align: center;
+    position: relative;
+  }
+  .id-card-school { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; color: var(--navy); text-transform: uppercase; }
+  .id-card-title { font-size: 14px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+  .id-card-subtitle { font-size: 9px; letter-spacing: 0.12em; color: rgba(10,22,40,0.7); margin-top: 1px; }
+  .id-card-body { padding: 20px; }
+  .id-card-avatar {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    border: 3px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0 auto 12px;
+  }
+  .id-card-name { font-size: 17px; font-weight: 700; text-align: center; }
+  .id-card-grade { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 3px; }
+  .id-card-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .id-card-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+  .id-card-field label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  .id-card-field .v { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 2px; font-family: var(--mono); }
+  .id-card-qr { margin: 14px auto 0; background: white; padding: 8px; border-radius: 10px; display: inline-block; }
+  .id-card-pgp { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); text-align: center; margin-top: 8px; }
+  .id-card-footer { background: rgba(0,194,168,0.06); padding: 10px; text-align: center; border-top: 1px solid var(--border); }
+  .id-card-footer span { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; }
+
+  /* ── LOG ── */
+  .log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 10px;
+    animation: fade-in 0.3s ease;
+  }
+  .log-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .log-name { font-size: 14px; font-weight: 700; }
+  .log-detail { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .log-time { font-size: 11px; font-family: var(--mono); color: var(--accent); font-weight: 600; margin-top: 5px; }
+  .email-tag { display: inline-block; font-size: 10px; background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-weight: 600; }
+
+  /* ── MANUAL LOOKUP ── */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 1rem; }
+  .search-bar input { flex: 1; }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .section-title { font-size: 22px; font-weight: 700; }
+  .section-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ── STAT CARDS ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
+  .stat-num { font-size: 32px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+  .tab { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; color: var(--text-muted); transition: all 0.2s; letter-spacing: 0.04em; }
+  .tab:hover { color: var(--text); border-color: var(--border); }
+  .tab.active { background: var(--accent-glow); border-color: var(--border); color: var(--accent); }
+
+  .hidden { display: none !important; }
+  .spacer { height: 1rem; }
+  .mt { margin-top: 1.5rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-badge">PGP</span>
+    <div>
+      <div>Permanent Gate Pass</div>
+      <div class="school-name">STUDENT AFFAIRS SYSTEM</div>
+    </div>
+  </div>
+  <nav>
+    <button class="active" onclick="showPage('admin')">Admin / Enroll</button>
+    <button onclick="showPage('scanner')">Gate Scanner</button>
+    <button onclick="showPage('logs')">Exit Logs</button>
+  </nav>
+</header>
+
+<!-- ══════════════ ADMIN PAGE ══════════════ -->
+<div class="page active" id="page-admin">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Student Enrollment</div>
+      <div class="section-sub">Register students and issue their Permanent Gate Pass</div>
+    </div>
+    <button class="btn btn-outline" onclick="showAddForm()">+ New Student</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Enrolled Students</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-grade7">0</div><div class="stat-label">Grade 7</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-grade8">0</div><div class="stat-label">Grade 8</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-exits">0</div><div class="stat-label">Exits Today</div></div>
+  </div>
+
+  <!-- Add form -->
+  <div class="card hidden" id="add-form-card">
+    <div class="card-title">Register New Student PGP</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Last Name</label>
+        <input type="text" id="f-lastname" placeholder="e.g. Santos">
+      </div>
+      <div class="form-group">
+        <label>First Name</label>
+        <input type="text" id="f-firstname" placeholder="e.g. Maria">
+      </div>
+      <div class="form-group">
+        <label>Middle Name</label>
+        <input type="text" id="f-midname" placeholder="Optional">
+      </div>
+      <div class="form-group">
+        <label>Student ID Number</label>
+        <input type="text" id="f-studid" placeholder="e.g. 2024-00123">
+      </div>
+      <div class="form-group">
+        <label>Grade & Section</label>
+        <input type="text" id="f-section" placeholder="e.g. Grade 7 — Rizal">
+      </div>
+      <div class="form-group">
+        <label>School Year</label>
+        <input type="text" id="f-sy" placeholder="e.g. 2024–2025" value="2025–2026">
+      </div>
+      <div class="form-group">
+        <label>Parent / Guardian Name</label>
+        <input type="text" id="f-parent" placeholder="e.g. Jose Santos">
+      </div>
+      <div class="form-group">
+        <label>Parent Email</label>
+        <input type="email" id="f-email" placeholder="parent@email.com">
+      </div>
+      <div class="form-group">
+        <label>Parent Mobile</label>
+        <input type="text" id="f-mobile" placeholder="09XX-XXX-XXXX">
+      </div>
+      <div class="form-group">
+        <label>Home Address</label>
+        <input type="text" id="f-address" placeholder="Barangay, City">
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:1.25rem;">
+      <button class="btn btn-primary" onclick="enrollStudent()">Generate Gate Pass</button>
+      <button class="btn btn-outline" onclick="document.getElementById('add-form-card').classList.add('hidden')">Cancel</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- Student list -->
+  <div class="card">
+    <div class="card-title">Enrolled Students</div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by name or ID..." oninput="renderTable()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>ID Number</th>
+            <th>Section</th>
+            <th>Parent Email</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="student-tbody"></tbody>
+      </table>
+      <div id="empty-state" style="text-align:center; padding:3rem; color:var(--text-muted); font-size:14px;">
+        No students enrolled yet. Click <strong>+ New Student</strong> to begin.
+      </div>
+    </div>
+  </div>
+
+  <!-- ID Card Modal -->
+  <div id="id-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(6px);overflow-y:auto;padding:2rem;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:1rem;">
+      <div id="id-modal-card"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="downloadID()">⬇ Download ID</button>
+        <button class="btn btn-outline" onclick="closeModal()">Close</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">Students show this digital ID to the gate guard for scanning</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SCANNER PAGE ══════════════ -->
+<div class="page" id="page-scanner">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Gate Scanner</div>
+      <div class="section-sub">Scan student QR code to verify and log exit</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Gate</label>
+      <select id="gate-select" style="width:160px;">
+        <option>Main Gate</option>
+        <option>Side Gate A</option>
+        <option>Side Gate B</option>
+        <option>Back Gate</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="scanner-layout">
+    <!-- Camera -->
+    <div>
+      <div class="card-title" style="margin-bottom:.75rem;">Camera Feed</div>
+      <div id="video-wrap">
+        <video id="qr-video" autoplay muted playsinline></video>
+        <canvas id="qr-canvas" style="display:none;"></canvas>
+        <div class="scan-overlay">
+          <div class="scan-frame"></div>
+          <div class="scan-line"></div>
+        </div>
+        <div class="scan-status" id="scan-status">● READY TO SCAN</div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="cam-btn" onclick="startCamera()">Start Camera</button>
+        <button class="btn btn-outline" onclick="stopCamera()">Stop</button>
+        <label class="btn btn-outline" style="cursor:pointer;display:flex;align-items:center;gap:6px;">
+          📷 Upload QR Image
+          <input type="file" id="qr-upload" accept="image/*" style="display:none;" onchange="scanUploadedImage(event)">
+        </label>
+      </div>
+      <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);">💡 Tip: If camera won't scan, screenshot the QR from your phone and upload it.</div>
+      <div style="margin-top:1rem;" class="card">
+        <div class="card-title">Manual Lookup</div>
+        <div class="search-bar">
+          <input type="text" id="manual-id" placeholder="Enter Student ID Number">
+          <button class="btn btn-primary" onclick="manualLookup()">Verify</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div>
+      <div class="card-title" style="margin-bottom:.75rem;">Verification Result</div>
+      <div class="card" id="result-panel">
+        <div class="result-idle" id="result-idle">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3" rx=".5"/>
+            <rect x="18" y="14" width="3" height="3" rx=".5"/><rect x="14" y="18" width="3" height="3" rx=".5"/>
+            <rect x="18" y="18" width="3" height="3" rx=".5"/>
+          </svg>
+          <div>Scan a student's QR code<br>to verify their Gate Pass</div>
+        </div>
+        <div class="result-card" id="result-card">
+          <div class="student-photo-area">
+            <div class="student-avatar" id="r-avatar"></div>
+            <div>
+              <div class="student-name" id="r-name"></div>
+              <div class="student-sub" id="r-sub"></div>
+            </div>
+          </div>
+          <div class="info-grid">
+            <div class="info-item"><label>ID Number</label><div class="val" id="r-id"></div></div>
+            <div class="info-item"><label>Section</label><div class="val" id="r-section"></div></div>
+            <div class="info-item"><label>Parent / Guardian</label><div class="val" id="r-parent"></div></div>
+            <div class="info-item"><label>Contact</label><div class="val" id="r-mobile"></div></div>
+            <div class="info-item"><label>School Year</label><div class="val" id="r-sy"></div></div>
+            <div class="info-item"><label>Scanned Gate</label><div class="val" id="r-gate"></div></div>
+          </div>
+          <div class="status-bar" id="r-statusbar">
+            <div class="dot" id="r-dot"></div>
+            <span id="r-status-text"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ LOGS PAGE ══════════════ -->
+<div class="page" id="page-logs">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Exit Logs</div>
+      <div class="section-sub">All gate exits recorded with automated parent notifications</div>
+    </div>
+    <button class="btn btn-outline" onclick="clearLogs()">Clear Logs</button>
+  </div>
+
+  <div id="log-container">
+    <div style="text-align:center;padding:4rem;color:var(--text-muted);font-size:14px;">
+      No exits recorded yet. Scanned exits will appear here with email notifications.
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA STORE ──
+let students = JSON.parse(localStorage.getItem('pgp_students') || '[]');
+let exitLogs = JSON.parse(localStorage.getItem('pgp_logs') || '[]');
+let videoStream = null;
+let scanInterval = null;
+let lastScanned = null;
+let scanCooldown = false;
+let currentViewId = null; // for modal
+
+function save() {
+  localStorage.setItem('pgp_students', JSON.stringify(students));
+  localStorage.setItem('pgp_logs', JSON.stringify(exitLogs));
+}
+
+// ── NAV ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'logs') renderLogs();
+  if (id === 'admin') { renderTable(); updateStats(); }
+}
+
+// ── ADMIN ──
+function showAddForm() {
+  document.getElementById('add-form-card').classList.remove('hidden');
+  document.getElementById('add-form-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function generatePassID() {
+  return 'PGP-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+}
+
+function getInitials(first, last) {
+  return (first.charAt(0) + last.charAt(0)).toUpperCase();
+}
+
+function enrollStudent() {
+  const last = document.getElementById('f-lastname').value.trim();
+  const first = document.getElementById('f-firstname').value.trim();
+  const mid = document.getElementById('f-midname').value.trim();
+  const studid = document.getElementById('f-studid').value.trim();
+  const section = document.getElementById('f-section').value.trim();
+  const sy = document.getElementById('f-sy').value.trim();
+  const parent = document.getElementById('f-parent').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const mobile = document.getElementById('f-mobile').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+
+  if (!last || !first || !studid || !section || !email) {
+    alert('Please fill in all required fields (Last Name, First Name, ID, Section, Parent Email).');
+    return;
+  }
+
+  const passID = generatePassID();
+  const student = { id: passID, last, first, mid, studid, section, sy, parent, email, mobile, address, enrolled: new Date().toISOString() };
+  students.push(student);
+  save();
+  renderTable();
+  updateStats();
+  document.getElementById('add-form-card').classList.add('hidden');
+  clearForm();
+  showIDCard(passID);
+}
+
+function clearForm() {
+  ['f-lastname','f-firstname','f-midname','f-studid','f-section','f-parent','f-email','f-mobile','f-address'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-sy').value = '2025–2026';
+}
+
+function renderTable() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const tbody = document.getElementById('student-tbody');
+  const empty = document.getElementById('empty-state');
+  const filtered = students.filter(s => `${s.first} ${s.last} ${s.studid}`.toLowerCase().includes(q));
+
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(s => `
+    <tr>
+      <td><strong>${s.last}, ${s.first}</strong><br><span style="font-size:11px;color:var(--text-muted);">${s.id}</span></td>
+      <td><span style="font-family:var(--mono);font-size:13px;">${s.studid}</span></td>
+      <td><span class="badge badge-grade">${s.section}</span></td>
+      <td style="font-size:12px;">${s.email}</td>
+      <td><span class="badge badge-active">ACTIVE</span></td>
+      <td>
+        <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;" onclick="showIDCard('${s.id}')">View ID</button>
+        <button class="btn btn-danger" style="padding:6px 14px;font-size:12px;margin-left:6px;" onclick="removeStudent('${s.id}')">Remove</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function removeStudent(id) {
+  if (!confirm('Remove this student from PGP?')) return;
+  students = students.filter(s => s.id !== id);
+  save();
+  renderTable();
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = students.length;
+  document.getElementById('stat-grade7').textContent = students.filter(s => s.section.toLowerCase().includes('7')).length;
+  document.getElementById('stat-grade8').textContent = students.filter(s => s.section.toLowerCase().includes('8')).length;
+  const today = new Date().toDateString();
+  document.getElementById('stat-exits').textContent = exitLogs.filter(l => new Date(l.time).toDateString() === today).length;
+}
+
+// ── ID CARD ──
+function showIDCard(passID) {
+  currentViewId = passID;
+  const s = students.find(st => st.id === passID);
+  if (!s) return;
+
+  const modal = document.getElementById('id-modal');
+  const wrap = document.getElementById('id-modal-card');
+
+  // Clear previous content first
+  wrap.innerHTML = '';
+  modal.style.display = 'flex';
+
+  const payload = JSON.stringify({ pgp: s.id, sid: s.studid, v: 1 });
+  const qrElemId = 'qr-render-now';
+
+  wrap.innerHTML = `
+    <div class="id-card">
+      <div class="id-card-header">
+        <div class="id-card-school">Department of Education · Philippines</div>
+        <div class="id-card-title">PERMANENT GATE PASS</div>
+        <div class="id-card-subtitle">AUTHORIZED EXIT DOCUMENT</div>
+      </div>
+      <div class="id-card-body">
+        <div class="id-card-avatar">${getInitials(s.first, s.last)}</div>
+        <div class="id-card-name">${s.last}, ${s.first}${s.mid ? ' ' + s.mid.charAt(0) + '.' : ''}</div>
+        <div class="id-card-grade">${s.section} · SY ${s.sy}</div>
+        <hr class="id-card-divider">
+        <div class="id-card-details">
+          <div class="id-card-field"><label>Student ID</label><div class="v">${s.studid}</div></div>
+          <div class="id-card-field"><label>PGP No.</label><div class="v" style="font-size:10px;">${s.id}</div></div>
+          <div class="id-card-field"><label>Guardian</label><div class="v" style="font-family:var(--font);font-size:11px;">${s.parent || '—'}</div></div>
+          <div class="id-card-field"><label>Status</label><div class="v" style="color:var(--green);">✓ ACTIVE</div></div>
+        </div>
+        <div class="id-card-qr"><div id="${qrElemId}"></div></div>
+        <div class="id-card-pgp">SCAN TO VERIFY AT GATE</div>
+      </div>
+      <div class="id-card-footer">
+        <span>Property of the school · Non-transferable · SY ${s.sy}</span>
+      </div>
+    </div>
+  `;
+
+  // Wait for DOM to settle before generating QR
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const qrEl = document.getElementById(qrElemId);
+      if (qrEl) {
+        new QRCode(qrEl, {
+          text: payload,
+          width: 112,
+          height: 112,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      }
+    }, 100);
+  });
+}
+
+function closeModal() {
+  document.getElementById('id-modal').style.display = 'none';
+  document.getElementById('id-modal-card').innerHTML = '';
+}
+
+function downloadID() {
+  alert('In production, this would use html2canvas or a server-side PDF generator to export the ID card as a printable PDF or image for distribution to students/parents.');
+}
+
+// ── SCANNER ──
+async function startCamera() {
+  try {
+    // Try rear camera first (for phones), fall back to any camera (for laptops)
+    let constraints = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch(e) {
+      // Fallback: just use any available camera
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+    const video = document.getElementById('qr-video');
+    video.srcObject = videoStream;
+    video.onloadedmetadata = () => { video.play(); startScanLoop(); };
+    document.getElementById('cam-btn').textContent = 'Camera On';
+  } catch(e) {
+    alert('Camera access denied or unavailable.\n\nTry: 1) Allow camera in browser\n2) Use the "Upload QR Image" button instead\n3) Use Manual Lookup below.');
+  }
+}
+
+function stopCamera() {
+  if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  document.getElementById('cam-btn').textContent = 'Start Camera';
+  document.getElementById('scan-status').textContent = '● READY TO SCAN';
+}
+
+function startScanLoop() {
+  const video = document.getElementById('qr-video');
+  const canvas = document.getElementById('qr-canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  document.getElementById('scan-status').textContent = '● SCANNING...';
+
+  scanInterval = setInterval(() => {
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    canvas.width = vw;
+    canvas.height = vh;
+
+    // Draw normal frame
+    ctx.drawImage(video, 0, 0, vw, vh);
+    let img = ctx.getImageData(0, 0, vw, vh);
+    let code = jsQR(img.data, vw, vh, { inversionAttempts: 'dontInvert' });
+
+    // Try contrast-boosted version if first attempt fails
+    if (!code) {
+      ctx.filter = 'contrast(1.8) brightness(1.1)';
+      ctx.drawImage(video, 0, 0, vw, vh);
+      ctx.filter = 'none';
+      img = ctx.getImageData(0, 0, vw, vh);
+      code = jsQR(img.data, vw, vh, { inversionAttempts: 'attemptBoth' });
+    }
+
+    if (code && !scanCooldown) {
+      processQR(code.data);
+    }
+  }, 150);
+}
+
+// ── UPLOAD QR IMAGE ──
+function scanUploadedImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+      if (code && !scanCooldown) {
+        processQR(code.data);
+        document.getElementById('scan-status').textContent = '✓ QR FOUND IN IMAGE';
+      } else {
+        document.getElementById('scan-status').textContent = '✗ NO QR DETECTED IN IMAGE';
+        showInvalid('No QR code detected in the uploaded image. Try a clearer screenshot.');
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be re-uploaded
+  event.target.value = '';
+}
+
+function processQR(raw) {
+  let payload;
+  try { payload = JSON.parse(raw); } catch(e) { showInvalid('Invalid QR code format.'); return; }
+  if (!payload.pgp) { showInvalid('Not a valid PGP QR code.'); return; }
+
+  const student = students.find(s => s.id === payload.pgp);
+  if (!student) { showInvalid('QR code not found in database. Possible fake ID!'); return; }
+
+  scanCooldown = true;
+  setTimeout(() => { scanCooldown = false; }, 4000);
+  showVerified(student);
+}
+
+function showVerified(s) {
+  document.getElementById('result-idle').style.display = 'none';
+  const card = document.getElementById('result-card');
+  card.classList.add('show');
+
+  const gate = document.getElementById('gate-select').value;
+  const now = new Date();
+
+  document.getElementById('r-avatar').textContent = getInitials(s.first, s.last);
+  document.getElementById('r-name').textContent = `${s.first} ${s.last}`;
+  document.getElementById('r-sub').textContent = `${s.section} · SY ${s.sy}`;
+  document.getElementById('r-id').textContent = s.studid;
+  document.getElementById('r-section').textContent = s.section;
+  document.getElementById('r-parent').textContent = s.parent || '—';
+  document.getElementById('r-mobile').textContent = s.mobile || '—';
+  document.getElementById('r-sy').textContent = s.sy;
+  document.getElementById('r-gate').textContent = gate;
+
+  const bar = document.getElementById('r-statusbar');
+  bar.className = 'status-bar valid';
+  document.getElementById('r-dot').className = 'dot green';
+  document.getElementById('r-status-text').textContent = `✓ VERIFIED — Exit cleared at ${now.toLocaleTimeString()}`;
+  document.getElementById('scan-status').textContent = '✓ SCAN SUCCESS';
+
+  logExit(s, gate, now);
+}
+
+function showInvalid(msg) {
+  document.getElementById('result-idle').style.display = 'none';
+  const card = document.getElementById('result-card');
+  card.classList.add('show');
+
+  document.getElementById('r-avatar').textContent = '!';
+  document.getElementById('r-name').textContent = 'UNRECOGNIZED ID';
+  document.getElementById('r-sub').textContent = 'This QR code is not in the database';
+  document.getElementById('r-id').textContent = '—';
+  document.getElementById('r-section').textContent = '—';
+  document.getElementById('r-parent').textContent = '—';
+  document.getElementById('r-mobile').textContent = '—';
+  document.getElementById('r-sy').textContent = '—';
+  document.getElementById('r-gate').textContent = document.getElementById('gate-select').value;
+
+  const bar = document.getElementById('r-statusbar');
+  bar.className = 'status-bar invalid';
+  document.getElementById('r-dot').className = 'dot red';
+  document.getElementById('r-status-text').textContent = `✗ DENIED — ${msg}`;
+  document.getElementById('scan-status').textContent = '✗ INVALID QR';
+}
+
+function manualLookup() {
+  const query = document.getElementById('manual-id').value.trim();
+  if (!query) return;
+  const s = students.find(st => st.studid === query || st.id === query);
+  if (s) showVerified(s);
+  else showInvalid('Student ID not found in PGP database.');
+}
+
+// ── LOGS ──
+function logExit(s, gate, now) {
+  const entry = {
+    id: Date.now(),
+    studentId: s.id,
+    name: `${s.first} ${s.last}`,
+    studid: s.studid,
+    section: s.section,
+    gate,
+    email: s.email,
+    parent: s.parent,
+    time: now.toISOString()
+  };
+  exitLogs.unshift(entry);
+  save();
+  updateStats();
+  simulateSendEmail(entry);
+}
+
+function simulateSendEmail(entry) {
+  console.log(`[EMAIL SENT] To: ${entry.email}\nSubject: Your child ${entry.name} has exited the campus\nBody: ${entry.name} (${entry.studid}) exited via ${entry.gate} at ${new Date(entry.time).toLocaleTimeString()}.`);
+}
+
+function renderLogs() {
+  const container = document.getElementById('log-container');
+  if (exitLogs.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:4rem;color:var(--text-muted);font-size:14px;">No exits recorded yet.</div>';
+    return;
+  }
+  container.innerHTML = exitLogs.map(l => {
+    const t = new Date(l.time);
+    return `
+      <div class="log-entry">
+        <div class="log-icon">🚪</div>
+        <div style="flex:1;">
+          <div class="log-name">${l.name} <span style="font-size:12px;font-family:var(--mono);color:var(--text-muted);">${l.studid}</span></div>
+          <div class="log-detail">${l.section} · Exited via <strong>${l.gate}</strong></div>
+          <div class="log-time">${t.toLocaleDateString('en-PH', {weekday:'short',month:'short',day:'numeric'})} · ${t.toLocaleTimeString('en-PH')}<span class="email-tag">📧 Email sent to ${l.email}</span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function clearLogs() {
+  if (!confirm('Clear all exit logs?')) return;
+  exitLogs = [];
+  save();
+  renderLogs();
+  updateStats();
+}
+
+// ── INIT ──
+renderTable();
+updateStats();
+</script>
+</body>
+</html>
