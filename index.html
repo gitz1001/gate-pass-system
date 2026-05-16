@@ -6,6 +6,7 @@
 <title>PGP — Permanent Gate Pass System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -623,6 +624,9 @@
 </div>
 
 <script>
+// ── EMAILJS INIT ──
+emailjs.init('JUClA9Stp6wKcFD2f');
+
 // ── DATA STORE ──
 let students = JSON.parse(localStorage.getItem('pgp_students') || '[]');
 let exitLogs = JSON.parse(localStorage.getItem('pgp_logs') || '[]');
@@ -987,7 +991,45 @@ function logExit(s, gate, now) {
 }
 
 function simulateSendEmail(entry) {
-  console.log(`[EMAIL SENT] To: ${entry.email}\nSubject: Your child ${entry.name} has exited the campus\nBody: ${entry.name} (${entry.studid}) exited via ${entry.gate} at ${new Date(entry.time).toLocaleTimeString()}.`);
+  const time = new Date(entry.time).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const date = new Date(entry.time).toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const templateParams = {
+    parent_email: entry.email,
+    parent_name:  entry.parent || 'Parent/Guardian',
+    student_name: entry.name,
+    student_id:   entry.studid,
+    section:      entry.section,
+    gate:         entry.gate,
+    time:         time,
+    date:         date
+  };
+
+  emailjs.send('service_unfgjoj', 'template_qyh1bsp', templateParams)
+    .then(() => {
+      console.log(`[EMAIL SENT] ✓ To: ${entry.email} for ${entry.name}`);
+      showEmailToast(`📧 Email sent to ${entry.email}`);
+    })
+    .catch((err) => {
+      console.error('[EMAIL FAILED]', err);
+      showEmailToast(`⚠️ Email failed: ${err.text || 'Check EmailJS settings'}`, true);
+    });
+}
+
+function showEmailToast(msg, isError = false) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  toast.style.cssText = `
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: ${isError ? '#ff4d6d' : '#00c2a8'};
+    color: ${isError ? 'white' : '#0a1628'};
+    padding: 12px 20px; border-radius: 10px;
+    font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    animation: fade-in 0.3s ease;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 
 function renderLogs() {
