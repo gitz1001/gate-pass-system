@@ -429,6 +429,22 @@
   <!-- Add form -->
   <div class="card hidden" id="add-form-card">
     <div class="card-title">Register New Student PGP</div>
+
+    <!-- Photo Upload -->
+    <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border);">
+      <div id="photo-preview" style="width:90px;height:90px;border-radius:50%;background:var(--accent-glow);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text-muted);text-align:center;flex-shrink:0;overflow:hidden;">
+        No Photo
+      </div>
+      <div>
+        <label style="display:block;margin-bottom:6px;">Student Photo</label>
+        <label class="btn btn-outline" style="cursor:pointer;font-size:12px;padding:8px 16px;">
+          📷 Upload Photo
+          <input type="file" id="f-photo" accept="image/*" style="display:none;" onchange="previewPhoto(event)">
+        </label>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Will appear on the gate pass ID card</div>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="form-group">
         <label>Last Name</label>
@@ -453,6 +469,15 @@
       <div class="form-group">
         <label>School Year</label>
         <input type="text" id="f-sy" placeholder="e.g. 2024–2025" value="2025–2026">
+      </div>
+      <div class="form-group">
+        <label>Dismissal Arrangement</label>
+        <select id="f-dismissal">
+          <option value="">— Select Dismissal Type —</option>
+          <option value="Fetched by Parent or Authorized Guardian">Fetched by Parent or Authorized Guardian</option>
+          <option value="Independent Dismissal (Goes Home Alone)">Independent Dismissal (Goes Home Alone)</option>
+          <option value="School Bus Service">School Bus Service</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Parent / Guardian Name</label>
@@ -595,6 +620,7 @@
             <div class="info-item"><label>Contact</label><div class="val" id="r-mobile"></div></div>
             <div class="info-item"><label>School Year</label><div class="val" id="r-sy"></div></div>
             <div class="info-item"><label>Scanned Gate</label><div class="val" id="r-gate"></div></div>
+            <div class="info-item" style="grid-column:span 2;"><label>Dismissal Arrangement</label><div class="val" id="r-dismissal" style="color:var(--accent);font-size:13px;"></div></div>
           </div>
           <div class="status-bar" id="r-statusbar">
             <div class="dot" id="r-dot"></div>
@@ -665,6 +691,18 @@ function getInitials(first, last) {
   return (first.charAt(0) + last.charAt(0)).toUpperCase();
 }
 
+function previewPhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById('photo-preview');
+    preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+    preview.dataset.photoData = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function enrollStudent() {
   const last = document.getElementById('f-lastname').value.trim();
   const first = document.getElementById('f-firstname').value.trim();
@@ -672,10 +710,12 @@ function enrollStudent() {
   const studid = document.getElementById('f-studid').value.trim();
   const section = document.getElementById('f-section').value.trim();
   const sy = document.getElementById('f-sy').value.trim();
+  const dismissal = document.getElementById('f-dismissal').value;
   const parent = document.getElementById('f-parent').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const mobile = document.getElementById('f-mobile').value.trim();
   const address = document.getElementById('f-address').value.trim();
+  const photo = document.getElementById('photo-preview').dataset.photoData || null;
 
   if (!last || !first || !studid || !section || !email) {
     alert('Please fill in all required fields (Last Name, First Name, ID, Section, Parent Email).');
@@ -683,7 +723,7 @@ function enrollStudent() {
   }
 
   const passID = generatePassID();
-  const student = { id: passID, last, first, mid, studid, section, sy, parent, email, mobile, address, enrolled: new Date().toISOString() };
+  const student = { id: passID, last, first, mid, studid, section, sy, dismissal, parent, email, mobile, address, photo, enrolled: new Date().toISOString() };
   students.push(student);
   save();
   renderTable();
@@ -696,6 +736,11 @@ function enrollStudent() {
 function clearForm() {
   ['f-lastname','f-firstname','f-midname','f-studid','f-section','f-parent','f-email','f-mobile','f-address'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-sy').value = '2025–2026';
+  document.getElementById('f-dismissal').value = '';
+  const preview = document.getElementById('photo-preview');
+  preview.innerHTML = 'No Photo';
+  delete preview.dataset.photoData;
+  document.getElementById('f-photo').value = '';
 }
 
 function renderTable() {
@@ -762,7 +807,12 @@ function showIDCard(passID) {
         <div class="id-card-subtitle">AUTHORIZED EXIT DOCUMENT</div>
       </div>
       <div class="id-card-body">
-        <div class="id-card-avatar">${getInitials(s.first, s.last)}</div>
+        <div class="id-card-avatar">
+          ${s.photo
+            ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : getInitials(s.first, s.last)
+          }
+        </div>
         <div class="id-card-name">${s.last}, ${s.first}${s.mid ? ' ' + s.mid.charAt(0) + '.' : ''}</div>
         <div class="id-card-grade">${s.section} · SY ${s.sy}</div>
         <hr class="id-card-divider">
@@ -772,6 +822,7 @@ function showIDCard(passID) {
           <div class="id-card-field"><label>Guardian</label><div class="v" style="font-family:var(--font);font-size:11px;">${s.parent || '—'}</div></div>
           <div class="id-card-field"><label>Status</label><div class="v" style="color:var(--green);">✓ ACTIVE</div></div>
         </div>
+        ${s.dismissal ? `<div style="margin-top:10px;padding:6px 10px;background:rgba(0,194,168,0.08);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--accent);text-align:center;letter-spacing:0.04em;">🚌 ${s.dismissal}</div>` : ''}
         <div class="id-card-qr"><div id="${qrElemId}"></div></div>
         <div class="id-card-pgp">SCAN TO VERIFY AT GATE</div>
       </div>
@@ -841,34 +892,46 @@ function startScanLoop() {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   document.getElementById('scan-status').textContent = '● SCANNING...';
 
+  // Use a hidden high-res offscreen canvas for better detection
+  const offscreen = document.createElement('canvas');
+  const octx = offscreen.getContext('2d', { willReadFrequently: true });
+
   scanInterval = setInterval(() => {
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    if (video.readyState < 2 || !video.videoWidth) return;
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    if (!vw || !vh) return;
 
+    // Try at native resolution first
     canvas.width = vw;
     canvas.height = vh;
-
-    // Draw normal frame
     ctx.drawImage(video, 0, 0, vw, vh);
-    let img = ctx.getImageData(0, 0, vw, vh);
-    let code = jsQR(img.data, vw, vh, { inversionAttempts: 'dontInvert' });
 
-    // Try contrast-boosted version if first attempt fails
+    // Attempt 1: normal
+    let imgData = ctx.getImageData(0, 0, vw, vh);
+    let code = jsQR(imgData.data, vw, vh, { inversionAttempts: 'dontInvert' });
+
+    // Attempt 2: inverted (light QR on dark screen)
     if (!code) {
-      ctx.filter = 'contrast(1.8) brightness(1.1)';
-      ctx.drawImage(video, 0, 0, vw, vh);
-      ctx.filter = 'none';
-      img = ctx.getImageData(0, 0, vw, vh);
-      code = jsQR(img.data, vw, vh, { inversionAttempts: 'attemptBoth' });
+      code = jsQR(imgData.data, vw, vh, { inversionAttempts: 'onlyInvert' });
+    }
+
+    // Attempt 3: contrast boosted at 2x scale
+    if (!code) {
+      const scale = 2;
+      offscreen.width = vw * scale;
+      offscreen.height = vh * scale;
+      octx.filter = 'contrast(2) brightness(1.2) grayscale(1)';
+      octx.drawImage(video, 0, 0, offscreen.width, offscreen.height);
+      octx.filter = 'none';
+      imgData = octx.getImageData(0, 0, offscreen.width, offscreen.height);
+      code = jsQR(imgData.data, offscreen.width, offscreen.height, { inversionAttempts: 'attemptBoth' });
     }
 
     if (code && !scanCooldown) {
       processQR(code.data);
     }
-  }, 150);
+  }, 100);
 }
 
 // ── UPLOAD QR IMAGE ──
@@ -879,25 +942,39 @@ function scanUploadedImage(event) {
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+      // Try at multiple scales and filters
+      let code = null;
+      const attempts = [
+        { scale: 1, filter: 'none' },
+        { scale: 2, filter: 'none' },
+        { scale: 1, filter: 'contrast(2) brightness(1.2) grayscale(1)' },
+        { scale: 2, filter: 'contrast(2) brightness(1.2) grayscale(1)' },
+      ];
+
+      for (const attempt of attempts) {
+        if (code) break;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * attempt.scale;
+        canvas.height = img.height * attempt.scale;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.filter = attempt.filter;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+      }
+
       if (code && !scanCooldown) {
         processQR(code.data);
         document.getElementById('scan-status').textContent = '✓ QR FOUND IN IMAGE';
       } else {
         document.getElementById('scan-status').textContent = '✗ NO QR DETECTED IN IMAGE';
-        showInvalid('No QR code detected in the uploaded image. Try a clearer screenshot.');
+        showInvalid('No QR code detected in the uploaded image. Try a clearer screenshot or use Manual Lookup.');
       }
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  // Reset input so same file can be re-uploaded
   event.target.value = '';
 }
 
@@ -931,6 +1008,7 @@ function showVerified(s) {
   document.getElementById('r-mobile').textContent = s.mobile || '—';
   document.getElementById('r-sy').textContent = s.sy;
   document.getElementById('r-gate').textContent = gate;
+  document.getElementById('r-dismissal').textContent = s.dismissal || '—';
 
   const bar = document.getElementById('r-statusbar');
   bar.className = 'status-bar valid';
