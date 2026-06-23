@@ -183,6 +183,9 @@ export default class AppController {
     if (this.scanInterval) { clearInterval(this.scanInterval); this.scanInterval = null; }
     document.getElementById('cam-btn').textContent = 'Start Camera';
     this.view.updateScanStatus('ready', '● READY TO SCAN');
+    
+    const wrap = document.getElementById('video-wrap');
+    if (wrap) wrap.classList.remove('scanning', 'scan-success', 'scan-error');
   }
 
   startScanLoop() {
@@ -190,6 +193,12 @@ export default class AppController {
     const canvas = document.getElementById('qr-canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     this.view.updateScanStatus('scanning', '● SCANNING...');
+    
+    const wrap = document.getElementById('video-wrap');
+    if (wrap) {
+      wrap.classList.remove('scan-success', 'scan-error');
+      wrap.classList.add('scanning');
+    }
 
     const offscreen = document.createElement('canvas');
     const octx = offscreen.getContext('2d', { willReadFrequently: true });
@@ -304,6 +313,11 @@ export default class AppController {
     const now = new Date();
     this.view.showVerifiedResult(s, gate, now.toLocaleTimeString());
     this.view.updateScanStatus('success', '✓ SCAN SUCCESS');
+    const wrap = document.getElementById('video-wrap');
+    if (wrap) {
+      wrap.classList.remove('scanning', 'scan-error');
+      wrap.classList.add('scan-success');
+    }
 
     const entry = {
       id: Date.now(),

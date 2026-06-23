@@ -142,8 +142,10 @@
         </thead>
         <tbody id="student-tbody"></tbody>
       </table>
-      <div id="empty-state" style="text-align:center; padding:3rem; color:var(--text-muted); font-size:14px;">
-        No students enrolled yet. Click <strong>+ New Student</strong> to begin.
+      <div id="empty-state" class="empty-state-wrap">
+        <div class="empty-icon">📁</div>
+        <div class="empty-text">No students enrolled yet</div>
+        <div class="empty-sub">Click <strong>+ New Student</strong> to begin issuing Permanent Gate Passes.</div>
       </div>
     </div>
   </div>
@@ -187,7 +189,10 @@
         <video id="qr-video" autoplay muted playsinline></video>
         <canvas id="qr-canvas" style="display:none;"></canvas>
         <div class="scan-overlay">
-          <div class="scan-frame"></div>
+          <div class="scan-frame" id="scan-frame-ui">
+            <div class="corner-1"></div>
+            <div class="corner-2"></div>
+          </div>
           <div class="scan-line"></div>
         </div>
         <div class="scan-status" id="scan-status">● READY TO SCAN</div>
@@ -261,8 +266,10 @@
   </div>
 
   <div id="log-container">
-    <div style="text-align:center;padding:4rem;color:var(--text-muted);font-size:14px;">
-      No exits recorded yet. Scanned exits will appear here with email notifications.
+    <div class="empty-state-wrap">
+      <div class="empty-icon">🚪</div>
+      <div class="empty-text">No exits recorded yet</div>
+      <div class="empty-sub">Scanned exits will appear here with email notifications.</div>
     </div>
   </div>
 </div>

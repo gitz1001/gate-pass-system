@@ -94,13 +94,49 @@ export default class AppView {
   showIDModal(studentHtml) {
     const modal = document.getElementById('id-modal');
     const wrap = document.getElementById('id-modal-card');
-    wrap.innerHTML = studentHtml;
+    wrap.innerHTML = `<div class="id-card-wrap" id="id-card-wrap">${studentHtml}</div>`;
     modal.style.display = 'flex';
+    
+    // Slight delay to allow display flex to apply before opacity transition
+    requestAnimationFrame(() => {
+      modal.classList.add('show');
+    });
+
+    // Add 3D Tilt Effect
+    setTimeout(() => {
+      const cardWrap = document.getElementById('id-card-wrap');
+      const card = cardWrap.querySelector('.id-card');
+      if (cardWrap && card) {
+        modal.addEventListener('mousemove', (e) => {
+          const rect = cardWrap.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          
+          // Only apply tilt if mouse is relatively near the card
+          if (x > -100 && x < rect.width + 100 && y > -100 && y < rect.height + 100) {
+            const rotateX = ((y - centerY) / centerY) * -15; // Max 15 deg tilt
+            const rotateY = ((x - centerX) / centerX) * 15;
+            card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+          } else {
+            card.style.transform = `rotateX(0deg) rotateY(0deg)`;
+          }
+        });
+        modal.addEventListener('mouseleave', () => {
+          card.style.transform = `rotateX(0deg) rotateY(0deg)`;
+        });
+      }
+    }, 100);
   }
 
   closeIDModal() {
-    document.getElementById('id-modal').style.display = 'none';
-    document.getElementById('id-modal-card').innerHTML = '';
+    const modal = document.getElementById('id-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+      modal.style.display = 'none';
+      document.getElementById('id-modal-card').innerHTML = '';
+    }, 300); // Wait for fade out
   }
 
   // --- Scanner View ---
@@ -155,7 +191,13 @@ export default class AppView {
   renderLogs(logs) {
     const container = document.getElementById('log-container');
     if (logs.length === 0) {
-      container.innerHTML = '<div style="text-align:center;padding:4rem;color:var(--text-muted);font-size:14px;">No exits recorded yet.</div>';
+      container.innerHTML = `
+        <div class="empty-state-wrap">
+          <div class="empty-icon">🚪</div>
+          <div class="empty-text">No exits recorded yet</div>
+          <div class="empty-sub">Scanned exits will appear here with email notifications.</div>
+        </div>
+      `;
       return;
     }
     container.innerHTML = logs.map(l => {
