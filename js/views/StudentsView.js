@@ -1,0 +1,236 @@
+import Icons from '../icons.js';
+import { escapeHTML } from '../utils.js';
+
+export default class StudentsView {
+  static render(model) {
+    const students = model.students || [];
+
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Student Registry</div>
+            <div class="card-sub">Manage active students and generating passes</div>
+          </div>
+          ${model.currentUser && model.currentUser.role !== 'guard' ? `
+          <button class="btn btn-primary btn-sm" id="btn-add-student">
+            ${Icons['plus'](14)} Enroll Student
+          </button>
+          ` : ''}
+        </div>
+        
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated);">
+          <div class="form-group" style="max-width: 300px;">
+            <input type="text" id="students-search" class="form-input" placeholder="Search by name or ID...">
+          </div>
+        </div>
+
+        <div class="tbl-wrap">
+          <table id="students-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Academic</th>
+                <th>Guardian</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${this.renderTableRows(students)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Add Student Wizard Modal -->
+      <div id="modal-wizard" class="overlay" style="display: none;">
+        <div class="modal modal-lg">
+          <div class="modal-head">
+            <div class="modal-title">Enroll New Student</div>
+            <button class="close-btn" id="btn-close-wizard">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body" style="padding: 0;">
+            <!-- Wizard Progress Header -->
+            <div style="display: flex; background: var(--bg-elevated); padding: 16px 20px; border-bottom: 1px solid var(--border);">
+              ${[
+                { num: 1, label: 'Identity' },
+                { num: 2, label: 'Academic' },
+                { num: 3, label: 'Guardian' },
+                { num: 4, label: 'Review' }
+              ].map((step, idx) => `
+                <div class="wizard-step" id="step-ind-${step.num}" style="flex: 1; text-align: center; color: ${idx === 0 ? 'var(--primary)' : 'var(--text3)'}; font-weight: ${idx === 0 ? '700' : '500'};">
+                  <div style="width: 24px; height: 24px; border-radius: 50%; background: ${idx === 0 ? 'var(--primary)' : 'var(--bg-card)'}; color: ${idx === 0 ? '#fff' : 'inherit'}; border: 1px solid ${idx === 0 ? 'var(--primary)' : 'var(--border2)'}; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 11px;">
+                    ${step.num}
+                  </div>
+                  <div style="font-size: 11px;">${step.label}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Form Content -->
+            <form id="form-enroll" style="padding: 24px;">
+              
+              <!-- Step 1: Identity -->
+              <div class="wizard-panel" id="panel-step-1" style="display: block;">
+                <div class="form-grid mb-12">
+                  <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="w-name" class="form-input" required placeholder="Lastname, Firstname">
+                  </div>
+                  <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="text" id="w-studid" class="form-input" required placeholder="e.g. 23-1234">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Photo (Upload or Camera)</label>
+                  <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div id="w-photo-preview" style="width: 80px; height: 80px; border-radius: 8px; background: var(--bg-elevated); border: 1px dashed var(--border2); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                      ${Icons['camera'](24)}
+                    </div>
+                    <input type="file" id="w-photo-file" accept="image/*" class="form-input" style="flex: 1;">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 2: Academic -->
+              <div class="wizard-panel" id="panel-step-2" style="display: none;">
+                <div class="form-grid mb-12">
+                  <div class="form-group">
+                    <label>Grade Level</label>
+                    <select id="w-grade" class="form-input" required>
+                      <option value="">Select Grade</option>
+                      <option value="Pre-School">Pre-School</option>
+                      <option value="Grade 1">Grade 1</option>
+                      <option value="Grade 2">Grade 2</option>
+                      <option value="Grade 3">Grade 3</option>
+                      <option value="Grade 4">Grade 4</option>
+                      <option value="Grade 5">Grade 5</option>
+                      <option value="Grade 6">Grade 6</option>
+                      <option value="Grade 7">Grade 7</option>
+                      <option value="Grade 8">Grade 8</option>
+                      <option value="Grade 9">Grade 9</option>
+                      <option value="Grade 10">Grade 10</option>
+                      <option value="Grade 11">Grade 11</option>
+                      <option value="Grade 12">Grade 12</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Section</label>
+                    <input type="text" id="w-section" class="form-input" placeholder="e.g. Diligence">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 3: Guardian -->
+              <div class="wizard-panel" id="panel-step-3" style="display: none;">
+                <div class="form-group mb-12">
+                  <label>Guardian Name</label>
+                  <input type="text" id="w-parent-name" class="form-input" required placeholder="Mr. / Mrs. Name">
+                </div>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Guardian Email</label>
+                    <input type="email" id="w-parent-email" class="form-input" required placeholder="Used for exit alerts">
+                  </div>
+                  <div class="form-group">
+                    <label>Mobile Number (Optional)</label>
+                    <input type="text" id="w-parent-phone" class="form-input" placeholder="09XX XXX XXXX">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 4: Review -->
+              <div class="wizard-panel" id="panel-step-4" style="display: none;">
+                <div style="background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 16px; border: 1px solid var(--border);">
+                  <h4 style="margin-bottom: 12px; color: var(--primary);">Summary</h4>
+                  <div class="grid-2" style="font-size: 13px;">
+                    <div><strong>Name:</strong> <span id="r-name"></span></div>
+                    <div><strong>ID:</strong> <span id="r-studid"></span></div>
+                    <div><strong>Grade:</strong> <span id="r-grade"></span></div>
+                    <div><strong>Guardian:</strong> <span id="r-guardian"></span></div>
+                    <div style="grid-column: 1 / -1;"><strong>Email:</strong> <span id="r-email"></span></div>
+                  </div>
+                </div>
+                <div class="alert alert-success" style="margin-top: 16px; background: var(--green-s); color: var(--green); padding: 12px; border-radius: var(--radius-sm); font-size: 12px;">
+                  All details look correct. Click <strong>Generate Pass</strong> to enroll student and create their PGP.
+                </div>
+              </div>
+
+            </form>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" id="btn-wizard-prev" style="display: none;">← Back</button>
+            <button class="btn btn-primary" id="btn-wizard-next">Next Step →</button>
+            <button class="btn btn-accent" id="btn-wizard-submit" style="display: none;">Generate Pass ✓</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Virtual ID Card Modal -->
+      <div id="modal-idcard" class="overlay" style="display: none;">
+        <div class="modal" style="width: 360px;">
+          <div class="modal-head">
+            <div class="modal-title">Virtual ID Card</div>
+            <button class="close-btn" id="btn-close-idcard">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body" style="background: #f5f4f8;">
+             <div id="idcard-render-target"></div>
+          </div>
+          <div class="modal-foot" style="justify-content: center;">
+            <button class="btn btn-primary" id="btn-download-id">
+              ${Icons['download'](14)} Download Image
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  static renderTableRows(students) {
+    if (!students || students.length === 0) {
+      return `<tr><td colspan="5" class="empty">No students found</td></tr>`;
+    }
+
+    return students.map(s => {
+      const isActive = s.status === 'active';
+      return `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 11px;">
+                ${s.photo && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML(s.name.substring(0, 2).toUpperCase())}
+              </div>
+              <div>
+                <div style="font-weight: 600;">${escapeHTML(s.name)}</div>
+                <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.studid || s.id)}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 500;">${escapeHTML(s.grade)}</div>
+            <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.section || '—')}</div>
+          </td>
+          <td>
+            <div style="font-weight: 500;">${escapeHTML(s.parentName || '—')}</div>
+            <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.parentEmail || '—')}</div>
+          </td>
+          <td>
+            <span class="badge ${isActive ? 'b-active' : 'b-denied'}">${isActive ? 'Active PGP' : escapeHTML(s.status)}</span>
+          </td>
+          <td>
+            <div class="flex gap-8">
+              <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" title="View ID Card">
+                ${Icons['id-card'](14)}
+              </button>
+              <button class="btn btn-danger btn-sm btn-del-student" data-id="${s.id}" title="Remove">
+                ${Icons['trash'](14)}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+}

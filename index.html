@@ -1,279 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PGP — Permanent Gate Pass System</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SISC Permanent Gate Pass System — Student exit verification and parent notification">
+  <meta name="theme-color" content="#422467">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>PGP — SISC Gate Pass System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <span class="logo-badge">PGP</span>
-    <div>
-      <div>Permanent Gate Pass</div>
-      <div class="school-name">STUDENT AFFAIRS SYSTEM</div>
-    </div>
-  </div>
-  <nav>
-    <button class="active" data-page="admin">Admin / Enroll</button>
-    <button data-page="scanner">Gate Scanner</button>
-    <button data-page="logs">Exit Logs</button>
-  </nav>
-</header>
+<div class="app" id="app">
 
-<!-- ══════════════ ADMIN PAGE ══════════════ -->
-<div class="page active" id="page-admin">
-  <div class="section-header">
-    <div>
-      <div class="section-title">Student Enrollment</div>
-      <div class="section-sub">Register students and issue their Permanent Gate Pass</div>
-    </div>
-    <button class="btn btn-outline" id="btn-new-student">+ New Student</button>
-  </div>
-
-  <div class="stats-row">
-    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Enrolled Students</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-grade7">0</div><div class="stat-label">Grade 7</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-grade8">0</div><div class="stat-label">Grade 8</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-exits">0</div><div class="stat-label">Exits Today</div></div>
-  </div>
-
-  <!-- Add form -->
-  <div class="card hidden" id="add-form-card">
-    <div class="card-title">Register New Student PGP</div>
-
-    <!-- Photo Upload -->
-    <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border);">
-      <div id="photo-preview" style="width:90px;height:90px;border-radius:50%;background:var(--accent-glow);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text-muted);text-align:center;flex-shrink:0;overflow:hidden;">
-        No Photo
-      </div>
-      <div>
-        <label style="display:block;margin-bottom:6px;">Student Photo</label>
-        <label class="btn btn-outline" style="cursor:pointer;font-size:12px;padding:8px 16px;">
-          📷 Upload Photo
-          <input type="file" id="f-photo" accept="image/*" style="display:none;">
-        </label>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Will appear on the gate pass ID card</div>
+  <!-- ═══ SIDEBAR (Desktop) ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo-wrap">
+      <div class="logo-icon">S</div>
+      <div class="logo-text">
+        <div class="logo-name">SISC Gate Pass</div>
+        <div class="logo-sy">SY 2025–2026</div>
       </div>
     </div>
 
-    <div class="grid-2">
-      <div class="form-group">
-        <label>Last Name</label>
-        <input type="text" id="f-lastname" placeholder="e.g. Santos">
-      </div>
-      <div class="form-group">
-        <label>First Name</label>
-        <input type="text" id="f-firstname" placeholder="e.g. Maria">
-      </div>
-      <div class="form-group">
-        <label>Middle Name</label>
-        <input type="text" id="f-midname" placeholder="Optional">
-      </div>
-      <div class="form-group">
-        <label>Student ID Number</label>
-        <input type="text" id="f-studid" placeholder="e.g. 2024-00123">
-      </div>
-      <div class="form-group">
-        <label>Grade & Section</label>
-        <input type="text" id="f-section" placeholder="e.g. Grade 7 — Rizal">
-      </div>
-      <div class="form-group">
-        <label>School Year</label>
-        <input type="text" id="f-sy" placeholder="e.g. 2024–2025" value="2025–2026">
-      </div>
-      <div class="form-group">
-        <label>Dismissal Arrangement</label>
-        <select id="f-dismissal">
-          <option value="">— Select Dismissal Type —</option>
-          <option value="Fetched by Parent or Authorized Guardian">Fetched by Parent or Authorized Guardian</option>
-          <option value="Independent Dismissal (Goes Home Alone)">Independent Dismissal (Goes Home Alone)</option>
-          <option value="School Bus Service">School Bus Service</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Parent / Guardian Name</label>
-        <input type="text" id="f-parent" placeholder="e.g. Jose Santos">
-      </div>
-      <div class="form-group">
-        <label>Parent Email</label>
-        <input type="email" id="f-email" placeholder="parent@email.com">
-      </div>
-      <div class="form-group">
-        <label>Parent Mobile</label>
-        <input type="text" id="f-mobile" placeholder="09XX-XXX-XXXX">
-      </div>
-      <div class="form-group">
-        <label>Home Address</label>
-        <input type="text" id="f-address" placeholder="Barangay, City">
-      </div>
+    <div class="nav" id="sidebar-nav">
+      <!-- Nav items rendered by AppView -->
     </div>
-    <div style="display:flex; gap:10px; margin-top:1.25rem;">
-      <button class="btn btn-primary" id="btn-enroll">Generate Gate Pass</button>
-      <button class="btn btn-outline" id="btn-cancel-add">Cancel</button>
-    </div>
-  </div>
 
-  <div class="spacer"></div>
-
-  <!-- Student list -->
-  <div class="card">
-    <div class="card-title">Enrolled Students</div>
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search by name or ID...">
+    <div class="sidebar-foot">
+      <div class="user-pill">
+        <div class="user-avatar" id="user-avatar">SA</div>
+        <div class="user-info">
+          <div class="uname" id="user-name">System Admin</div>
+          <div class="urole" id="user-role">Administrator</div>
+        </div>
+      </div>
+      <button class="sidebar-action sidebar-footer-text" id="btn-logout">
+        <span id="logout-icon"></span> Sign out
+      </button>
+      <button class="sidebar-action sidebar-footer-text desktop-only" id="btn-collapse-sidebar">
+        <span id="collapse-icon"></span> Collapse sidebar
+      </button>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>ID Number</th>
-            <th>Section</th>
-            <th>Parent Email</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="student-tbody"></tbody>
-      </table>
-      <div id="empty-state" class="empty-state-wrap">
-        <div class="empty-icon">📁</div>
-        <div class="empty-text">No students enrolled yet</div>
-        <div class="empty-sub">Click <strong>+ New Student</strong> to begin issuing Permanent Gate Passes.</div>
+  </aside>
+
+  <!-- Sidebar overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main">
+    <!-- Top Bar -->
+    <div class="topbar" id="topbar">
+      <button class="topbar-btn" id="btn-menu" title="Toggle sidebar">
+        <span id="menu-icon"></span>
+      </button>
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+      <div class="flex gap-8 items-center">
+        <div id="topbar-actions"></div>
+        <button class="topbar-btn theme-toggle" id="btn-theme" title="Toggle theme">
+          <span id="theme-icon"></span>
+        </button>
       </div>
     </div>
-  </div>
 
-  <!-- ID Card Modal -->
-  <div id="id-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(6px);overflow-y:auto;padding:2rem;">
-    <div style="display:flex;flex-direction:column;align-items:center;gap:1rem;">
-      <div id="id-modal-card"></div>
-      <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" id="btn-download-id">⬇ Download ID</button>
-        <button class="btn btn-outline" id="btn-close-modal">Close</button>
-      </div>
-      <div style="font-size:12px;color:var(--text-muted);">Students show this digital ID to the gate guard for scanning</div>
+    <!-- Page Content -->
+    <div class="content" id="page-content">
+      <!-- Rendered by AppView based on current page -->
     </div>
   </div>
 </div>
 
-<!-- ══════════════ SCANNER PAGE ══════════════ -->
-<div class="page" id="page-scanner">
-  <div class="section-header">
-    <div>
-      <div class="section-title">Gate Scanner</div>
-      <div class="section-sub">Scan student QR code to verify and log exit</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <label style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Gate</label>
-      <select id="gate-select" style="width:160px;">
-        <option>Main Gate</option>
-        <option>Side Gate A</option>
-        <option>Side Gate B</option>
-        <option>Back Gate</option>
-      </select>
-    </div>
+<!-- ═══ BOTTOM NAV (Mobile) ═══ -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bottom-nav-inner" id="bottom-nav-inner">
+    <!-- Rendered by AppView -->
   </div>
+</nav>
 
-  <div class="scanner-layout">
-    <!-- Camera -->
-    <div>
-      <div class="card-title" style="margin-bottom:.75rem;">Camera Feed</div>
-      <div id="video-wrap">
-        <video id="qr-video" autoplay muted playsinline></video>
-        <canvas id="qr-canvas" style="display:none;"></canvas>
-        <div class="scan-overlay">
-          <div class="scan-frame" id="scan-frame-ui">
-            <div class="corner-1"></div>
-            <div class="corner-2"></div>
-          </div>
-          <div class="scan-line"></div>
-        </div>
-        <div class="scan-status" id="scan-status">● READY TO SCAN</div>
-      </div>
-      <div style="margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="cam-btn">Start Camera</button>
-        <button class="btn btn-outline" id="btn-stop-cam">Stop</button>
-        <label class="btn btn-outline" style="cursor:pointer;display:flex;align-items:center;gap:6px;">
-          📷 Upload QR Image
-          <input type="file" id="qr-upload" accept="image/*" style="display:none;">
-        </label>
-      </div>
-      <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);">💡 Tip: If camera won't scan, screenshot the QR from your phone and upload it.</div>
-      <div style="margin-top:1rem;" class="card">
-        <div class="card-title">Manual Lookup</div>
-        <div class="search-bar">
-          <input type="text" id="manual-id" placeholder="Enter Student ID Number">
-          <button class="btn btn-primary" id="btn-manual-lookup">Verify</button>
-        </div>
-      </div>
-    </div>
+<!-- ═══ MODAL CONTAINER ═══ -->
+<div id="modal-root"></div>
 
-    <!-- Result -->
-    <div>
-      <div class="card-title" style="margin-bottom:.75rem;">Verification Result</div>
-      <div class="card" id="result-panel">
-        <div class="result-idle" id="result-idle">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3" rx=".5"/>
-            <rect x="18" y="14" width="3" height="3" rx=".5"/><rect x="14" y="18" width="3" height="3" rx=".5"/>
-            <rect x="18" y="18" width="3" height="3" rx=".5"/>
-          </svg>
-          <div>Scan a student's QR code<br>to verify their Gate Pass</div>
-        </div>
-        <div class="result-card" id="result-card">
-          <div class="student-photo-area">
-            <div class="student-avatar" id="r-avatar"></div>
-            <div>
-              <div class="student-name" id="r-name"></div>
-              <div class="student-sub" id="r-sub"></div>
-            </div>
-          </div>
-          <div class="info-grid">
-            <div class="info-item"><label>ID Number</label><div class="val" id="r-id"></div></div>
-            <div class="info-item"><label>Section</label><div class="val" id="r-section"></div></div>
-            <div class="info-item"><label>Parent / Guardian</label><div class="val" id="r-parent"></div></div>
-            <div class="info-item"><label>Contact</label><div class="val" id="r-mobile"></div></div>
-            <div class="info-item"><label>School Year</label><div class="val" id="r-sy"></div></div>
-            <div class="info-item"><label>Scanned Gate</label><div class="val" id="r-gate"></div></div>
-            <div class="info-item" style="grid-column:span 2;"><label>Dismissal Arrangement</label><div class="val" id="r-dismissal" style="color:var(--accent);font-size:13px;"></div></div>
-          </div>
-          <div class="status-bar" id="r-statusbar">
-            <div class="dot" id="r-dot"></div>
-            <span id="r-status-text"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════ LOGS PAGE ══════════════ -->
-<div class="page" id="page-logs">
-  <div class="section-header">
-    <div>
-      <div class="section-title">Exit Logs</div>
-      <div class="section-sub">All gate exits recorded with automated parent notifications</div>
-    </div>
-    <button class="btn btn-outline" id="btn-clear-logs">Clear Logs</button>
-  </div>
-
-  <div id="log-container">
-    <div class="empty-state-wrap">
-      <div class="empty-icon">🚪</div>
-      <div class="empty-text">No exits recorded yet</div>
-      <div class="empty-sub">Scanned exits will appear here with email notifications.</div>
-    </div>
-  </div>
-</div>
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div id="toast-root"></div>
 
 <script type="module" src="js/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        console.log('SW registered!', reg);
+      }).catch(err => console.log('SW reg failed', err));
+    });
+  }
+</script>
 </body>
 </html>

@@ -1,233 +1,285 @@
+import Icons from '../icons.js';
+import DashboardView from './DashboardView.js';
+import StudentsView from './StudentsView.js';
+import ScannerView from './ScannerView.js';
+import LogsView from './LogsView.js';
+import PGPView from './PGPView.js';
+import ReportsView from './ReportsView.js';
+import SettingsView from './SettingsView.js';
+import TGPView from './TGPView.js';
+import UsersView from './UsersView.js';
+import LoginView from './LoginView.js';
+
+// Page definitions for navigation
+const NAV_SECTIONS = [
+  {
+    title: 'OVERVIEW',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'layout-grid' }
+    ]
+  },
+  {
+    title: 'MANAGEMENT',
+    items: [
+      { id: 'students', label: 'Student Registry', icon: 'users' },
+      { id: 'tgp', label: 'Temporary Passes', icon: 'clock' }
+    ]
+  },
+  {
+    title: 'GATE OPERATIONS',
+    items: [
+      { id: 'scanner', label: 'Gate Scanner', icon: 'scan-line' },
+      { id: 'logs', label: 'Exit Logs', icon: 'file-text' }
+    ]
+  },
+  {
+    title: 'SYSTEM ADMIN',
+    items: [
+      { id: 'pgp', label: 'PGP Management', icon: 'shield-check' },
+      { id: 'reports', label: 'Reports', icon: 'bar-chart' },
+      { id: 'users', label: 'User Management', icon: 'user-cog' },
+      { id: 'settings', label: 'Settings', icon: 'settings-gear' }
+    ]
+  }
+];
+
+const ROLE_PERMISSIONS = {
+  admin: ['dashboard', 'students', 'scanner', 'logs', 'pgp', 'reports', 'tgp', 'users', 'settings'],
+  secretary: ['dashboard', 'students', 'tgp', 'logs'],
+  guard: ['dashboard', 'scanner', 'tgp', 'logs']
+};
+
+// Bottom nav shows only the most-used pages
+const BOTTOM_NAV_ITEMS = [
+  { id: 'dashboard', icon: 'layout-grid', label: 'Home' },
+  { id: 'scanner',   icon: 'scan-line',   label: 'Scanner' },
+  { id: 'students',  icon: 'users',       label: 'Students' },
+  { id: 'logs',      icon: 'file-text',   label: 'Logs' },
+  { id: 'settings',  icon: 'settings-gear', label: 'More' },
+];
+
+const PAGE_TITLES = {
+  dashboard: 'Dashboard',
+  scanner:   'Gate Scanner',
+  logs:      'Exit Logs',
+  pgp:       'Permanent Gate Passes',
+  tgp:       'Temporary Gate Passes',
+  students:  'Student Registry',
+  reports:   'Reports',
+  users:     'User Management',
+  settings:  'Settings',
+};
+
 export default class AppView {
   constructor() {
-    this.pages = document.querySelectorAll('.page');
-    this.navButtons = document.querySelectorAll('nav button');
+    this.currentPage = 'dashboard';
   }
 
-  // --- Navigation ---
-  showPage(pageId) {
-    this.pages.forEach(p => p.classList.remove('active'));
-    this.navButtons.forEach(b => b.classList.remove('active'));
-    document.getElementById(`page-${pageId}`).classList.add('active');
-    document.querySelector(`nav button[data-page="${pageId}"]`).classList.add('active');
-  }
+  // ── Render Navigation ─────────────────────────────────
+  renderSidebar(model) {
+    const nav = document.getElementById('sidebar-nav');
+    if (!nav) return;
 
-  // --- Admin View ---
-  updateStats(total, grade7, grade8, exitsToday) {
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-grade7').textContent = grade7;
-    document.getElementById('stat-grade8').textContent = grade8;
-    document.getElementById('stat-exits').textContent = exitsToday;
-  }
-
-  renderStudentTable(students, query = '') {
-    const tbody = document.getElementById('student-tbody');
-    const empty = document.getElementById('empty-state');
-    const filtered = students.filter(s => `${s.first} ${s.last} ${s.studid}`.toLowerCase().includes(query.toLowerCase()));
-
-    if (filtered.length === 0) { 
-      tbody.innerHTML = ''; 
-      empty.style.display = 'block'; 
-      return; 
+    if (!model.currentUser) {
+      nav.innerHTML = '';
+      const foot = document.querySelector('.sidebar-foot');
+      if(foot) foot.style.display = 'none';
+      return;
     }
-    empty.style.display = 'none';
 
-    tbody.innerHTML = filtered.map(s => `
-      <tr>
-        <td><strong>${s.last}, ${s.first}</strong><br><span style="font-size:11px;color:var(--text-muted);">${s.id}</span></td>
-        <td><span style="font-family:var(--mono);font-size:13px;">${s.studid}</span></td>
-        <td><span class="badge badge-grade">${s.section}</span></td>
-        <td style="font-size:12px;">${s.email}</td>
-        <td><span class="badge badge-active">ACTIVE</span></td>
-        <td>
-          <button class="btn btn-outline btn-view-id" data-id="${s.id}" style="padding:6px 14px;font-size:12px;">View ID</button>
-          <button class="btn btn-danger btn-remove" data-id="${s.id}" style="padding:6px 14px;font-size:12px;margin-left:6px;">Remove</button>
-        </td>
-      </tr>
+    const permissions = ROLE_PERMISSIONS[model.currentUser.role] || [];
+    let html = '';
+
+    NAV_SECTIONS.forEach(section => {
+      const allowedItems = section.items.filter(item => permissions.includes(item.id));
+      if (allowedItems.length > 0) {
+        html += `<div class="nav-sec">${section.title}</div>`;
+        allowedItems.forEach(item => {
+          const isActive = this.currentPage === item.id ? 'active' : '';
+          html += `
+            <button class="nav-item ${isActive}" data-page="${item.id}">
+              <span class="nav-icon">${Icons[item.icon](16)}</span>
+              <span class="nav-label">${item.label}</span>
+            </button>
+          `;
+        });
+      }
+    });
+
+    nav.innerHTML = html;
+
+    // Update footer elements
+    const foot = document.querySelector('.sidebar-foot');
+    if(foot) foot.style.display = 'block';
+
+    const avatar = document.getElementById('user-avatar');
+    if (avatar) avatar.textContent = model.currentUser.name.substring(0, 1).toUpperCase();
+    
+    const uname = document.getElementById('user-name');
+    if (uname) uname.textContent = model.currentUser.name;
+    
+    const urole = document.getElementById('user-role');
+    if (urole) urole.textContent = model.currentUser.role.toUpperCase();
+
+    const logoutIcon = document.getElementById('logout-icon');
+    if (logoutIcon) logoutIcon.innerHTML = Icons['log-out'](14);
+    
+    const collapseIcon = document.getElementById('collapse-icon');
+    if (collapseIcon) collapseIcon.innerHTML = Icons['chevron-left'](14);
+  }
+
+  renderBottomNav(model) {
+    const inner = document.getElementById('bottom-nav-inner');
+    if (!inner) return;
+
+    if (!model.currentUser) {
+      inner.innerHTML = '';
+      document.getElementById('bottom-nav').style.display = 'none';
+      return;
+    }
+    document.getElementById('bottom-nav').style.display = ''; // let CSS handle it
+
+    const permissions = ROLE_PERMISSIONS[model.currentUser.role] || [];
+    const allItems = NAV_SECTIONS.flatMap(s => s.items).filter(item => permissions.includes(item.id));
+    const mobileItems = allItems.slice(0, 4);
+
+    inner.innerHTML = mobileItems.map(item => `
+      <button class="bottom-nav-item ${this.currentPage === item.id ? 'active' : ''}" data-page="${item.id}">
+        ${Icons[item.icon](20)}
+        <span>${item.label}</span>
+      </button>
     `).join('');
   }
 
-  showAddForm() {
-    const form = document.getElementById('add-form-card');
-    form.classList.remove('hidden');
-    form.scrollIntoView({ behavior: 'smooth' });
+  // ── Render topbar icons ───────────────────────────────
+  renderTopbarIcons(isDark) {
+    const menuIcon = document.getElementById('menu-icon');
+    if (menuIcon) menuIcon.innerHTML = Icons['menu'](18);
+
+    const themeIcon = document.getElementById('theme-icon');
+    if (themeIcon) themeIcon.innerHTML = isDark ? Icons['sun'](18) : Icons['moon'](18);
   }
 
-  hideAddForm() {
-    document.getElementById('add-form-card').classList.add('hidden');
-  }
+  // ── Navigate to page ──────────────────────────────────
+  showPage(pageId, model) {
+    this.currentPage = pageId;
 
-  clearAddForm() {
-    ['f-lastname','f-firstname','f-midname','f-studid','f-section','f-parent','f-email','f-mobile','f-address'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('f-sy').value = '2025–2026';
-    document.getElementById('f-dismissal').value = '';
-    const preview = document.getElementById('photo-preview');
-    preview.innerHTML = 'No Photo';
-    delete preview.dataset.photoData;
-    document.getElementById('f-photo').value = '';
-  }
+    const sidebar = document.getElementById('sidebar');
+    const topbar = document.getElementById('topbar');
+    const bottomNav = document.getElementById('bottom-nav');
+    const main = document.querySelector('.main');
+    const isLogin = pageId === 'login';
 
-  getFormData() {
-    return {
-      last: document.getElementById('f-lastname').value.trim(),
-      first: document.getElementById('f-firstname').value.trim(),
-      mid: document.getElementById('f-midname').value.trim(),
-      studid: document.getElementById('f-studid').value.trim(),
-      section: document.getElementById('f-section').value.trim(),
-      sy: document.getElementById('f-sy').value.trim(),
-      dismissal: document.getElementById('f-dismissal').value,
-      parent: document.getElementById('f-parent').value.trim(),
-      email: document.getElementById('f-email').value.trim(),
-      mobile: document.getElementById('f-mobile').value.trim(),
-      address: document.getElementById('f-address').value.trim(),
-      photo: document.getElementById('photo-preview').dataset.photoData || null
-    };
-  }
+    // Update topbar title
+    const title = document.getElementById('topbar-title');
+    if (title) title.textContent = isLogin ? 'Authentication' : (PAGE_TITLES[pageId] || 'PGP System');
 
-  previewPhoto(dataUrl) {
-    const preview = document.getElementById('photo-preview');
-    preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-    preview.dataset.photoData = dataUrl;
-  }
-
-  // --- ID Card Modal ---
-  showIDModal(studentHtml) {
-    const modal = document.getElementById('id-modal');
-    const wrap = document.getElementById('id-modal-card');
-    wrap.innerHTML = `<div class="id-card-wrap" id="id-card-wrap">${studentHtml}</div>`;
-    modal.style.display = 'flex';
-    
-    // Slight delay to allow display flex to apply before opacity transition
-    requestAnimationFrame(() => {
-      modal.classList.add('show');
-    });
-
-    // Add 3D Tilt Effect
-    setTimeout(() => {
-      const cardWrap = document.getElementById('id-card-wrap');
-      const card = cardWrap.querySelector('.id-card');
-      if (cardWrap && card) {
-        modal.addEventListener('mousemove', (e) => {
-          const rect = cardWrap.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          const centerX = rect.width / 2;
-          const centerY = rect.height / 2;
-          
-          // Only apply tilt if mouse is relatively near the card
-          if (x > -100 && x < rect.width + 100 && y > -100 && y < rect.height + 100) {
-            const rotateX = ((y - centerY) / centerY) * -15; // Max 15 deg tilt
-            const rotateY = ((x - centerX) / centerX) * 15;
-            card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-          } else {
-            card.style.transform = `rotateX(0deg) rotateY(0deg)`;
-          }
-        });
-        modal.addEventListener('mouseleave', () => {
-          card.style.transform = `rotateX(0deg) rotateY(0deg)`;
-        });
-      }
-    }, 100);
-  }
-
-  closeIDModal() {
-    const modal = document.getElementById('id-modal');
-    modal.classList.remove('show');
-    setTimeout(() => {
-      modal.style.display = 'none';
-      document.getElementById('id-modal-card').innerHTML = '';
-    }, 300); // Wait for fade out
-  }
-
-  // --- Scanner View ---
-  updateScanStatus(status, text) {
-    document.getElementById('scan-status').textContent = text;
-  }
-
-  showVerifiedResult(s, gate, timeString) {
-    document.getElementById('result-idle').style.display = 'none';
-    const card = document.getElementById('result-card');
-    card.classList.add('show');
-
-    document.getElementById('r-avatar').innerHTML = s.photo ? `<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : (s.first.charAt(0) + s.last.charAt(0)).toUpperCase();
-    document.getElementById('r-name').textContent = `${s.first} ${s.last}`;
-    document.getElementById('r-sub').textContent = `${s.section} · SY ${s.sy}`;
-    document.getElementById('r-id').textContent = s.studid;
-    document.getElementById('r-section').textContent = s.section;
-    document.getElementById('r-parent').textContent = s.parent || '—';
-    document.getElementById('r-mobile').textContent = s.mobile || '—';
-    document.getElementById('r-sy').textContent = s.sy;
-    document.getElementById('r-gate').textContent = gate;
-    document.getElementById('r-dismissal').textContent = s.dismissal || '—';
-
-    const bar = document.getElementById('r-statusbar');
-    bar.className = 'status-bar valid';
-    document.getElementById('r-dot').className = 'dot green';
-    document.getElementById('r-status-text').textContent = `✓ VERIFIED — Exit cleared at ${timeString}`;
-  }
-
-  showInvalidResult(msg, gate) {
-    document.getElementById('result-idle').style.display = 'none';
-    const card = document.getElementById('result-card');
-    card.classList.add('show');
-
-    document.getElementById('r-avatar').textContent = '!';
-    document.getElementById('r-name').textContent = 'UNRECOGNIZED ID';
-    document.getElementById('r-sub').textContent = 'This QR code is not in the database';
-    document.getElementById('r-id').textContent = '—';
-    document.getElementById('r-section').textContent = '—';
-    document.getElementById('r-parent').textContent = '—';
-    document.getElementById('r-mobile').textContent = '—';
-    document.getElementById('r-sy').textContent = '—';
-    document.getElementById('r-gate').textContent = gate;
-
-    const bar = document.getElementById('r-statusbar');
-    bar.className = 'status-bar invalid';
-    document.getElementById('r-dot').className = 'dot red';
-    document.getElementById('r-status-text').textContent = `✗ DENIED — ${msg}`;
-  }
-
-  // --- Logs View ---
-  renderLogs(logs) {
-    const container = document.getElementById('log-container');
-    if (logs.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state-wrap">
-          <div class="empty-icon">🚪</div>
-          <div class="empty-text">No exits recorded yet</div>
-          <div class="empty-sub">Scanned exits will appear here with email notifications.</div>
-        </div>
-      `;
-      return;
+    // Toggle visibility of shell elements for login vs app pages
+    if (sidebar) sidebar.style.display = isLogin ? 'none' : '';
+    if (topbar) topbar.style.display = isLogin ? 'none' : '';
+    if (bottomNav) bottomNav.style.display = isLogin ? 'none' : '';
+    if (main) {
+      main.style.marginLeft = isLogin ? '0' : '';
+      main.style.paddingBottom = isLogin ? '0' : '';
     }
-    container.innerHTML = logs.map(l => {
-      const t = new Date(l.time);
-      return `
-        <div class="log-entry">
-          <div class="log-icon">🚪</div>
-          <div style="flex:1;">
-            <div class="log-name">${l.name} <span style="font-size:12px;font-family:var(--mono);color:var(--text-muted);">${l.studid}</span></div>
-            <div class="log-detail">${l.section} · Exited via <strong>${l.gate}</strong></div>
-            <div class="log-time">${t.toLocaleDateString('en-PH', {weekday:'short',month:'short',day:'numeric'})} · ${t.toLocaleTimeString('en-PH')}<span class="email-tag">📧 Email sent to ${l.email}</span></div>
-          </div>
-        </div>
-      `;
-    }).join('');
+
+    // Re-render navs to update active state (only when logged in)
+    if (!isLogin && model.currentUser) {
+      this.renderSidebar(model);
+      this.renderBottomNav(model);
+    }
+
+    // Render page content
+    const content = document.getElementById('page-content');
+    if (content) content.innerHTML = this.renderPageContent(pageId, model);
   }
 
-  showToast(msg, isError = false) {
-    const toast = document.createElement('div');
-    toast.textContent = msg;
-    toast.style.cssText = `
-      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-      background: ${isError ? '#ff4d6d' : '#00c2a8'};
-      color: ${isError ? 'white' : '#0a1628'};
-      padding: 12px 20px; border-radius: 10px;
-      font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      animation: fade-in 0.3s ease;
+  // ── Page content router ───────────────────────────────
+  renderPageContent(pageId, model) {
+    if (pageId === 'login') return LoginView.render(model);
+    if (pageId === 'dashboard') return DashboardView.render(model);
+    if (pageId === 'students') return StudentsView.render(model);
+    if (pageId === 'scanner') return ScannerView.render(model);
+    if (pageId === 'logs') return LogsView.render(model);
+    if (pageId === 'pgp') return PGPView.render(model);
+    if (pageId === 'reports') return ReportsView.render(model);
+    if (pageId === 'settings') return SettingsView.render(model);
+    if (pageId === 'tgp') return TGPView.render(model);
+    if (pageId === 'users') return UsersView.render(model);
+    const iconName = NAV_SECTIONS
+      .flatMap(s => s.items)
+      .find(i => i.id === pageId)?.icon || 'layout-grid';
+
+    const title = PAGE_TITLES[pageId] || pageId;
+
+    // Phase 1: All pages are placeholders
+    // Phase 2+ will replace these with actual content
+    return `
+      <div class="page-placeholder">
+        <div class="page-placeholder-icon">${Icons[iconName](64)}</div>
+        <div class="page-placeholder-title">${title}</div>
+        <div class="page-placeholder-sub">Coming in Phase 2 — This page will be built next</div>
+      </div>
     `;
-    document.body.appendChild(toast);
+  }
+
+  // ── Theme ─────────────────────────────────────────────
+  applyTheme(theme) {
+    const html = document.documentElement;
+    if (theme === 'light' || theme === 'dark') {
+      html.setAttribute('data-theme', theme);
+    } else {
+      html.removeAttribute('data-theme');
+    }
+    const isDark = this.isDarkMode();
+    this.renderTopbarIcons(isDark);
+
+    // Update meta theme-color
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = isDark ? '#0c0a14' : '#422467';
+  }
+
+  isDarkMode() {
+    const explicit = document.documentElement.getAttribute('data-theme');
+    if (explicit) return explicit === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  // ── Sidebar collapse ─────────────────────────────────
+  setSidebarCollapsed(collapsed) {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.toggle('collapsed', collapsed);
+  }
+
+  // ── Mobile sidebar ────────────────────────────────────
+  openMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.classList.add('visible');
+  }
+
+  closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('visible');
+  }
+
+  // ── Toast notifications ───────────────────────────────
+  showToast(msg, type = 'success') {
+    const root = document.getElementById('toast-root');
+    if (!root) return;
+
+    const iconName = type === 'error' ? 'alert-triangle' : 'check-circle';
+    const cssClass = type === 'error' ? 'toast-error' : 'toast-success';
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${cssClass}`;
+    toast.innerHTML = `${Icons[iconName](16)} <span>${msg}</span>`;
+    root.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
   }
 }
+
+export { NAV_SECTIONS, BOTTOM_NAV_ITEMS, PAGE_TITLES, ROLE_PERMISSIONS };
