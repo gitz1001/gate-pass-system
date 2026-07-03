@@ -1,10 +1,11 @@
-const CACHE_NAME = 'pgp-cache-v4';
+const CACHE_NAME = 'pgp-cache-v5';
 const ASSETS = [
   './',
   './index.html',
   './css/styles.css',
   './js/main.js',
   './js/icons.js',
+  './js/utils.js',
   './js/models/AppModel.js',
   './js/views/AppView.js',
   './js/views/DashboardView.js',
@@ -18,6 +19,14 @@ const ASSETS = [
   './js/views/UsersView.js',
   './js/views/LoginView.js',
   './js/controllers/AppController.js',
+  './js/controllers/pages/LoginController.js',
+  './js/controllers/pages/DashboardController.js',
+  './js/controllers/pages/LogsController.js',
+  './js/controllers/pages/PGPController.js',
+  './js/controllers/pages/ScannerController.js',
+  './js/controllers/pages/SettingsController.js',
+  './js/controllers/pages/StudentsController.js',
+  './js/controllers/pages/TGPController.js',
   './manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js',

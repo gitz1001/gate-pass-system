@@ -37,4 +37,42 @@ export default class TGPController {
         controller.navigateToPage('tgp');
       });
     }
+
+    // RBAC: Hide action buttons if guard
+    if (controller.model.currentUser && controller.model.currentUser.role === 'guard') {
+      document.querySelectorAll('.btn-tgp-action').forEach(btn => btn.style.display = 'none');
+      if (btnAdd) btnAdd.style.display = 'none';
+    }
+
+    // Action buttons (Approve/Reject)
+    document.querySelectorAll('.btn-tgp-action').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const action = e.currentTarget.dataset.action;
+        
+        if (confirm(`Are you sure you want to ${action === 'approved' ? 'APPROVE' : 'REJECT'} this pass?`)) {
+          controller.model.updateTGPStatus(id, action);
+          controller.view.showToast(`Pass ${action}`);
+          controller.navigateToPage('tgp');
+        }
+      });
+    });
+
+    // Pill filters
+    const pills = document.querySelectorAll('#tgp-table-filters .pill, button.pill[data-filter]');
+    pills.forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        pills.forEach(p => p.classList.remove('on'));
+        e.currentTarget.classList.add('on');
+        const filter = e.currentTarget.dataset.filter || 'all';
+        const rows = document.querySelectorAll('#tgp-table tbody tr');
+        
+        rows.forEach(row => {
+          if (row.querySelector('.empty')) return;
+          const status = row.dataset.status;
+          row.style.display = (filter === 'all' || status === filter) ? '' : 'none';
+        });
+      });
+    });
+  }
 }

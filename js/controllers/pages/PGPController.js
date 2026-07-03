@@ -47,4 +47,7 @@ export default class PGPController {
           controller.view.showToast(`Pass status updated to ${action}`);
           controller.navigateToPage('pgp'); // Refresh view
         }
+      });
+    });
+  }
 }
