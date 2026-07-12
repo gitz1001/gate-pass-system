@@ -3,6 +3,7 @@ export default class AppModel {
     this.students = JSON.parse(localStorage.getItem('pgp_students') || '[]');
     this.exitLogs = JSON.parse(localStorage.getItem('pgp_logs') || '[]');
     this.tgp = JSON.parse(localStorage.getItem('pgp_tgp') || '[]');
+    this.emailQueue = JSON.parse(localStorage.getItem('pgp_email_queue') || '[]');
 
     // Session: requires BOTH localStorage (profile) AND sessionStorage (browser-alive flag)
     const profile = JSON.parse(localStorage.getItem('pgp_session') || 'null');
@@ -18,33 +19,39 @@ export default class AppModel {
     this.SESSION_TIMEOUT = 15 * 60 * 1000;
   }
 
-  save() {
-    this.saveStudents();
-    this.saveLogs();
-    this.saveTGP();
+  async save() {
+    await Promise.all([this.saveStudents(), this.saveLogs(), this.saveTGP()]);
   }
 
-  saveStudents() {
+  async saveStudents() {
     localStorage.setItem('pgp_students', JSON.stringify(this.students));
+    return Promise.resolve();
   }
 
-  saveLogs() {
+  async saveLogs() {
     localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
+    return Promise.resolve();
   }
 
-  saveTGP() {
+  async saveTGP() {
     localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
+    return Promise.resolve();
+  }
+
+  async saveEmailQueue() {
+    localStorage.setItem('pgp_email_queue', JSON.stringify(this.emailQueue));
+    return Promise.resolve();
   }
 
   // ── Student CRUD ────────────────────────────────────────
-  addStudent(student) {
+  async addStudent(student) {
     this.students.push(student);
-    this.saveStudents();
+    await this.saveStudents();
   }
 
-  removeStudent(id) {
+  async removeStudent(id) {
     this.students = this.students.filter(s => s.id !== id);
-    this.saveStudents();
+    await this.saveStudents();
   }
 
   getStudentByPassId(id) {
@@ -55,36 +62,47 @@ export default class AppModel {
     return this.students.find(s => s.studid === studid || s.id === studid);
   }
 
-  updateStudentStatus(id, status) {
+  async updateStudentStatus(id, status) {
     const student = this.students.find(s => s.id === id);
     if (student) {
       student.status = status;
-      this.saveStudents();
+      await this.saveStudents();
     }
   }
 
   // ── Exit Log CRUD ───────────────────────────────────────
-  addExitLog(logEntry) {
+  async addExitLog(logEntry) {
     this.exitLogs.unshift(logEntry);
-    this.saveLogs();
+    await this.saveLogs();
   }
 
-  clearLogs() {
+  async clearLogs() {
     this.exitLogs = [];
-    this.saveLogs();
+    await this.saveLogs();
+  }
+
+  // ── Email Queue CRUD ────────────────────────────────────
+  async addEmailToQueue(emailParams) {
+    this.emailQueue.push(emailParams);
+    await this.saveEmailQueue();
+  }
+
+  async removeEmailFromQueue(index) {
+    this.emailQueue.splice(index, 1);
+    await this.saveEmailQueue();
   }
 
   // ── TGP CRUD ────────────────────────────────────────────
-  addTGP(tgpEntry) {
+  async addTGP(tgpEntry) {
     this.tgp.unshift(tgpEntry);
-    this.saveTGP();
+    await this.saveTGP();
   }
 
-  updateTGPStatus(id, status) {
+  async updateTGPStatus(id, status) {
     const pass = this.tgp.find(t => t.id === id);
     if (pass) {
       pass.status = status;
-      this.saveTGP();
+      await this.saveTGP();
     }
   }
 

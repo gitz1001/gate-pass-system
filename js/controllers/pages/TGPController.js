@@ -11,7 +11,7 @@ export default class TGPController {
     if (btnCancel && modal) btnCancel.addEventListener('click', (e) => { e.preventDefault(); modal.style.display = 'none'; });
 
     if (form) {
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const studentId = document.getElementById('tgp-student').value;
         const validDate = document.getElementById('tgp-date').value;
@@ -30,7 +30,7 @@ export default class TGPController {
           createdAt: new Date().toISOString()
         };
 
-        controller.model.addTGP(newTGP);
+        await controller.model.addTGP(newTGP);
         controller.view.showToast('TGP Request Submitted');
         modal.style.display = 'none';
         form.reset();
@@ -46,12 +46,12 @@ export default class TGPController {
 
     // Action buttons (Approve/Reject)
     document.querySelectorAll('.btn-tgp-action').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const action = e.currentTarget.dataset.action;
         
         if (confirm(`Are you sure you want to ${action === 'approved' ? 'APPROVE' : 'REJECT'} this pass?`)) {
-          controller.model.updateTGPStatus(id, action);
+          await controller.model.updateTGPStatus(id, action);
           controller.view.showToast(`Pass ${action}`);
           controller.navigateToPage('tgp');
         }

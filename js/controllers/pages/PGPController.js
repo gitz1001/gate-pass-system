@@ -33,7 +33,7 @@ export default class PGPController {
 
     // Status Updates
     document.querySelectorAll('.btn-status-update').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const action = e.currentTarget.dataset.action;
         const confirmMsg = action === 'revoked' 
@@ -43,7 +43,7 @@ export default class PGPController {
             : 'Reactivate this pass?';
             
         if (confirm(confirmMsg)) {
-          controller.model.updateStudentStatus(id, action);
+          await controller.model.updateStudentStatus(id, action);
           controller.view.showToast(`Pass status updated to ${action}`);
           controller.navigateToPage('pgp'); // Refresh view
         }

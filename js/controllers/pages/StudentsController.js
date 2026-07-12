@@ -21,16 +21,30 @@ export default class StudentsController {
     if (btnNext) {
       btnNext.addEventListener('click', () => {
         if (controller.currentWizardStep === 1) {
-          if (!document.getElementById('w-name').value || !document.getElementById('w-studid').value) {
+          const nameVal = document.getElementById('w-name').value.trim();
+          const studidVal = document.getElementById('w-studid').value.trim();
+          if (!nameVal || !studidVal) {
             controller.view.showToast('Please fill out Name and Student ID', 'error'); return;
+          }
+          // Duplicate Student ID check
+          const duplicate = (controller.model.students || []).find(s => s.studid === studidVal);
+          if (duplicate) {
+            controller.view.showToast(`Student ID "${studidVal}" already exists (${duplicate.name})`, 'error'); return;
           }
         } else if (controller.currentWizardStep === 2) {
           if (!document.getElementById('w-grade').value) {
             controller.view.showToast('Please select a Grade', 'error'); return;
           }
         } else if (controller.currentWizardStep === 3) {
-          if (!document.getElementById('w-parent-name').value || !document.getElementById('w-parent-email').value) {
+          const parentName = document.getElementById('w-parent-name').value.trim();
+          const parentEmail = document.getElementById('w-parent-email').value.trim();
+          if (!parentName || !parentEmail) {
             controller.view.showToast('Please fill out Guardian Name and Email', 'error'); return;
+          }
+          // Email format validation
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(parentEmail)) {
+            controller.view.showToast('Please enter a valid email address', 'error'); return;
           }
           document.getElementById('r-name').textContent = document.getElementById('w-name').value;
           document.getElementById('r-studid').textContent = document.getElementById('w-studid').value;
@@ -49,7 +63,7 @@ export default class StudentsController {
       });
     }
     if (btnSubmit) {
-      btnSubmit.addEventListener('click', () => { controller.handleEnrollment(); });
+      btnSubmit.addEventListener('click', async () => { await controller.handleEnrollment(); });
     }
     const photoInput = document.getElementById('w-photo-file');
     if (photoInput) {
@@ -70,10 +84,10 @@ export default class StudentsController {
       delBtns.forEach(btn => btn.style.display = 'none');
     } else {
       delBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
           const id = e.currentTarget.dataset.id;
           if (confirm('Are you sure you want to remove this student?')) {
-            controller.model.removeStudent(id);
+            await controller.model.removeStudent(id);
             controller.view.showToast('Student removed successfully');
             controller.navigateToPage('students');
           }
@@ -81,6 +95,7 @@ export default class StudentsController {
       });
     }
     StudentsController.bindIdCard(controller);
+    StudentsController.bindCSVImport(controller);
     const searchIn = document.getElementById('students-search');
     if (searchIn) {
       searchIn.addEventListener('input', () => {
@@ -147,5 +162,160 @@ export default class StudentsController {
         });
       });
     }
+  }
+
+  static bindCSVImport(controller) {
+    const btnImport = document.getElementById('btn-import-csv');
+    const modal = document.getElementById('modal-csv-import');
+    const btnClose = document.getElementById('btn-close-csv');
+    const btnCancel = document.getElementById('btn-cancel-csv');
+    const btnSubmit = document.getElementById('btn-submit-csv');
+    const fileInput = document.getElementById('csv-file-input');
+    const previewArea = document.getElementById('csv-preview');
+
+    if (btnImport && modal) btnImport.addEventListener('click', () => {
+      modal.style.display = 'flex';
+      if (previewArea) previewArea.innerHTML = '';
+      if (fileInput) fileInput.value = '';
+    });
+    if (btnClose && modal) btnClose.addEventListener('click', () => modal.style.display = 'none');
+    if (btnCancel && modal) btnCancel.addEventListener('click', (e) => { e.preventDefault(); modal.style.display = 'none'; });
+
+    // CSV Preview on file select
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const text = ev.target.result;
+          const rows = StudentsController.parseCSV(text);
+          if (rows.length <= 1) {
+            previewArea.innerHTML = '<div style="color:var(--red);padding:12px;">CSV file is empty or has no data rows.</div>';
+            return;
+          }
+          const headers = rows[0];
+          const dataRows = rows.slice(1);
+          // Validate required headers
+          const requiredHeaders = ['name', 'studid', 'grade'];
+          const lowerHeaders = headers.map(h => h.toLowerCase().trim());
+          const missing = requiredHeaders.filter(h => !lowerHeaders.includes(h));
+          if (missing.length > 0) {
+            previewArea.innerHTML = `<div style="color:var(--red);padding:12px;">Missing required columns: <strong>${missing.join(', ')}</strong></div>`;
+            return;
+          }
+
+          previewArea.innerHTML = `
+            <div style="color:var(--green);padding:8px 12px;font-size:12px;font-weight:600;background:var(--green-s);border-radius:var(--radius-sm);margin-bottom:8px;">
+              ✓ ${dataRows.length} student(s) found. Preview below:
+            </div>
+            <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <table style="width:100%;font-size:11px;">
+                <thead><tr>${headers.map(h => `<th style="padding:6px 8px;text-align:left;background:var(--bg-elevated);">${h}</th>`).join('')}</tr></thead>
+                <tbody>${dataRows.slice(0, 10).map(row => `<tr>${row.map(cell => `<td style="padding:4px 8px;border-top:1px solid var(--border);">${cell}</td>`).join('')}</tr>`).join('')}
+                ${dataRows.length > 10 ? `<tr><td colspan="${headers.length}" style="padding:6px 8px;text-align:center;color:var(--text3);font-style:italic;">...and ${dataRows.length - 10} more</td></tr>` : ''}
+                </tbody>
+              </table>
+            </div>`;
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    // Submit CSV
+    if (btnSubmit) {
+      btnSubmit.addEventListener('click', async () => {
+        if (!fileInput || !fileInput.files[0]) {
+          controller.view.showToast('Please select a CSV file first', 'error');
+          return;
+        }
+        const file = fileInput.files[0];
+        const text = await file.text();
+        const rows = StudentsController.parseCSV(text);
+        if (rows.length <= 1) {
+          controller.view.showToast('CSV file has no data rows', 'error');
+          return;
+        }
+
+        const headers = rows[0].map(h => h.toLowerCase().trim());
+        const dataRows = rows.slice(1);
+
+        const nameIdx = headers.indexOf('name');
+        const studidIdx = headers.indexOf('studid');
+        const gradeIdx = headers.indexOf('grade');
+        const sectionIdx = headers.indexOf('section');
+        const parentNameIdx = headers.indexOf('parentname');
+        const parentEmailIdx = headers.indexOf('parentemail');
+        const phoneIdx = headers.indexOf('phone');
+
+        let imported = 0;
+        let skipped = 0;
+
+        for (const row of dataRows) {
+          const name = row[nameIdx]?.trim();
+          const studid = row[studidIdx]?.trim();
+          const grade = row[gradeIdx]?.trim();
+
+          if (!name || !studid || !grade) { skipped++; continue; }
+
+          // Check duplicate
+          const exists = controller.model.students.find(s => s.studid === studid);
+          if (exists) { skipped++; continue; }
+
+          const newStudent = {
+            id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6),
+            name,
+            studid,
+            grade,
+            section: sectionIdx >= 0 ? (row[sectionIdx]?.trim() || '') : '',
+            parentName: parentNameIdx >= 0 ? (row[parentNameIdx]?.trim() || '') : '',
+            parentEmail: parentEmailIdx >= 0 ? (row[parentEmailIdx]?.trim() || '') : '',
+            phone: phoneIdx >= 0 ? (row[phoneIdx]?.trim() || '') : '',
+            photo: '',
+            pgp: 'PGP-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            status: 'active'
+          };
+          await controller.model.addStudent(newStudent);
+          imported++;
+        }
+
+        modal.style.display = 'none';
+        controller.view.showToast(`Imported ${imported} student(s). ${skipped > 0 ? `${skipped} skipped (duplicate or incomplete).` : ''}`);
+        controller.navigateToPage('students');
+      });
+    }
+  }
+
+  static parseCSV(text) {
+    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+    return lines.map(line => {
+      const result = [];
+      let inQuotes = false;
+      let current = '';
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (inQuotes) {
+          if (char === '"' && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = false;
+          } else {
+            current += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            result.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+      }
+      result.push(current);
+      return result;
+    });
   }
 }

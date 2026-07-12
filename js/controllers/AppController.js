@@ -42,6 +42,30 @@ export default class AppController {
         this.view.applyTheme('auto');
       }
     });
+
+    // Offline queue processing
+    window.addEventListener('online', () => this.processEmailQueue());
+    this.processEmailQueue();
+  }
+
+  async processEmailQueue() {
+    if (!this.model.emailQueue || this.model.emailQueue.length === 0) return;
+    if (typeof window.emailjs === 'undefined') return;
+    if (!navigator.onLine) return;
+
+    console.log(`Attempting to send ${this.model.emailQueue.length} queued emails...`);
+    
+    while (this.model.emailQueue.length > 0) {
+      const params = this.model.emailQueue[0];
+      try {
+        await window.emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', params);
+        console.log('Queued email sent successfully');
+        await this.model.removeEmailFromQueue(0);
+      } catch (err) {
+        console.error('Queued email still failing, stopping queue process', err);
+        break; // Stop processing if one fails (no internet)
+      }
+    }
   }
 
   // ── Navigation Wrapper ─────────────────────────────────
@@ -226,7 +250,7 @@ export default class AppController {
     document.getElementById('btn-wizard-submit').style.display = step === 4 ? 'block' : 'none';
   }
 
-  handleEnrollment() {
+  async handleEnrollment() {
     const name = document.getElementById('w-name').value;
     const studid = document.getElementById('w-studid').value;
     const grade = document.getElementById('w-grade').value;
@@ -249,7 +273,7 @@ export default class AppController {
       status: 'active'
     };
 
-    this.model.addStudent(newStudent);
+    await this.model.addStudent(newStudent);
     this.view.showToast('Student enrolled & PGP generated!');
     document.getElementById('modal-wizard').style.display = 'none';
     this.tempPhotoData = null;
@@ -278,7 +302,10 @@ export default class AppController {
       })
       .catch(err => {
         console.error("Camera access denied", err);
-        this.view.showToast("Camera access denied or unavailable", "error");
+        const message = err.name === 'NotAllowedError' && err.message.includes('dismissed')
+          ? "Camera permission was dismissed. Please try again and 'Allow' access."
+          : "Camera access denied or unavailable. Please check your settings.";
+        this.view.showToast(message, "error");
       });
   }
 
@@ -310,7 +337,13 @@ export default class AppController {
       canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
       
       const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+      
+      if (typeof window.jsQR !== 'function') {
+        this.stopCamera();
+        this.view.showToast("QR Scanner library failed to load. Please check internet connection.", "error");
+        return;
+      }
+      const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
 
       if (code && code.data) {
         this.processScan(code.data);
@@ -327,7 +360,7 @@ export default class AppController {
     requestAnimationFrame(() => this.tickCamera());
   }
 
-  processScan(scannedData) {
+  async processScan(scannedData) {
     let student = null;
     let isDenied = false;
     let msg = '';
@@ -371,7 +404,7 @@ export default class AppController {
     const gateSelect = document.getElementById('scan-gate');
     const gate = gateSelect ? gateSelect.value : 'Main Gate';
     
-    this.model.addExitLog({
+    await this.model.addExitLog({
       id: Date.now().toString(),
       studentId: student ? student.id : scannedData,
       gate: gate,
@@ -405,9 +438,28 @@ export default class AppController {
       });
     }
 
-    // Send email logic (placeholder for actual EmailJS call)
-    if (student && !isDenied) {
-      console.log(`Simulating email to ${student.parentEmail}: ${student.name} exited via ${gate}`);
+    // Send email logic via EmailJS
+    if (student && !isDenied && student.parentEmail) {
+      if (typeof window.emailjs !== 'undefined') {
+        const templateParams = {
+          to_name: student.parentName || 'Parent/Guardian',
+          to_email: student.parentEmail,
+          student_name: student.name,
+          gate_name: gate,
+          exit_time: new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+          exit_date: new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })
+        };
+
+        // Note: You will need to replace 'YOUR_SERVICE_ID' and 'YOUR_TEMPLATE_ID' with your actual EmailJS credentials
+        window.emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+          .then(res => console.log('Email sent successfully', res.status))
+          .catch(async err => {
+            console.error('Failed to send email (offline?), queuing...', err);
+            await this.model.addEmailToQueue(templateParams);
+          });
+      } else {
+        console.warn("EmailJS is not loaded or configured.");
+      }
     }
   }
 }

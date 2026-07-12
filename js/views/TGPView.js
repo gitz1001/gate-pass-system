@@ -76,7 +76,7 @@ export default class TGPView {
               <div class="grid-2 mb-12">
                 <div class="form-group">
                   <label>Valid For Date</label>
-                  <input type="date" id="tgp-date" class="form-input" required min="${new Date().toISOString().split('T')[0]}">
+                  <input type="date" id="tgp-date" class="form-input" required min="${new Date().toLocaleDateString('en-CA')}">
                 </div>
                 <div class="form-group">
                   <label>Designated Gate</label>
@@ -100,8 +100,8 @@ export default class TGPView {
             </form>
           </div>
           <div class="modal-foot">
-            <button class="btn btn-ghost" id="btn-cancel-tgp">Cancel</button>
-            <button class="btn btn-primary" id="btn-submit-tgp">Submit Request</button>
+            <button type="button" class="btn btn-ghost" id="btn-cancel-tgp">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-tgp" form="form-tgp">Submit Request</button>
           </div>
         </div>
       </div>

@@ -23,6 +23,7 @@ export default class LogsController {
         }
         
         let csv = 'Date,Time,Student Name,Student ID,Gate,Result,Pass Type\n';
+        const escapeCSV = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
         logs.forEach(log => {
           const student = controller.model.getStudentByPassId(log.studentId) || controller.model.getStudentByStudId(log.studentId);
           const sName = student ? student.name : 'Unknown';
@@ -31,7 +32,7 @@ export default class LogsController {
           const dateStr = date.toLocaleDateString('en-CA');
           const timeStr = date.toLocaleTimeString('en-GB');
           
-          csv += `"${dateStr}","${timeStr}","${sName}","${sId}","${log.gate || 'Main Gate'}","${log.result}","${log.passType || 'PGP'}"\n`;
+          csv += `${escapeCSV(dateStr)},${escapeCSV(timeStr)},${escapeCSV(sName)},${escapeCSV(sId)},${escapeCSV(log.gate || 'Main Gate')},${escapeCSV(log.result)},${escapeCSV(log.passType || 'PGP')}\n`;
         });
         
         const blob = new Blob([csv], { type: 'text/csv' });
