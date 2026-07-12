@@ -1,71 +1,34 @@
-const CACHE_NAME = 'pgp-cache-v5';
-const ASSETS = [
-  './',
+const CACHE_NAME = 'pgp-cache-v1';
+const urlsToCache = [
   './index.html',
-  './css/styles.css',
-  './js/main.js',
-  './js/icons.js',
+  './css/style.css',
+  './js/app.js',
   './js/utils.js',
+  './js/icons.js',
   './js/models/AppModel.js',
-  './js/views/AppView.js',
-  './js/views/DashboardView.js',
-  './js/views/LogsView.js',
-  './js/views/PGPView.js',
-  './js/views/ReportsView.js',
-  './js/views/ScannerView.js',
-  './js/views/SettingsView.js',
-  './js/views/StudentsView.js',
-  './js/views/TGPView.js',
-  './js/views/UsersView.js',
-  './js/views/LoginView.js',
+  './js/services/SheetsService.js',
   './js/controllers/AppController.js',
-  './js/controllers/pages/LoginController.js',
-  './js/controllers/pages/DashboardController.js',
-  './js/controllers/pages/LogsController.js',
-  './js/controllers/pages/PGPController.js',
-  './js/controllers/pages/ScannerController.js',
-  './js/controllers/pages/SettingsController.js',
-  './js/controllers/pages/StudentsController.js',
-  './js/controllers/pages/TGPController.js',
-  './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'
+  './manifest.json'
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        return cache.addAll(urlsToCache);
+      })
   );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
-  // Network First strategy for development
+  // Only cache GET requests, ignore POST/API calls
+  if (event.request.method !== 'GET') return;
+  
   event.respondWith(
-    fetch(event.request)
+    caches.match(event.request)
       .then(response => {
-        // Update cache if network is successful
-        const resClone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
-        return response;
+        // Return cached version or fetch from network
+        return response || fetch(event.request);
       })
-      .catch(() => caches.match(event.request))
   );
 });

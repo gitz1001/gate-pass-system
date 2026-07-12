@@ -15,49 +15,33 @@ export default class LoginView {
           
           <div class="card-body" style="padding: 24px;">
             <div style="text-align: center; margin-bottom: 24px; color: var(--text2); font-size: 14px;">
-              Select your role to continue:
+              Please enter your credentials:
             </div>
             
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <!-- Admin -->
-              <button class="btn btn-login-role" data-role="admin" data-name="System Admin" style="width: 100%; justify-content: space-between; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="color: var(--primary);">${Icons['users'](20)}</div>
-                  <div style="text-align: left;">
-                    <div style="font-weight: 700;">System Administrator</div>
-                    <div style="font-size: 11px; color: var(--text3); font-weight: 400;">Full Access</div>
-                  </div>
+            <form id="login-form">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="login-username">Username</label>
+                <div style="position: relative;">
+                  <span style="position: absolute; left: 12px; top: 10px; color: var(--text3);">${Icons['user-cog'](16)}</span>
+                  <input type="text" id="login-username" class="form-input" style="padding-left: 36px;" required placeholder="Enter username (e.g., admin)" autocomplete="username">
                 </div>
-                <div style="color: var(--border2);">${Icons['arrow-right'](16)}</div>
-              </button>
+              </div>
 
-              <!-- Secretary -->
-              <button class="btn btn-login-role" data-role="secretary" data-name="Secretary Cruz" style="width: 100%; justify-content: space-between; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="color: var(--orange);">${Icons['file-text'](20)}</div>
-                  <div style="text-align: left;">
-                    <div style="font-weight: 700;">Office Secretary</div>
-                    <div style="font-size: 11px; color: var(--text3); font-weight: 400;">Enrollment & Approvals</div>
-                  </div>
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label for="login-password">Password</label>
+                <div style="position: relative;">
+                  <span style="position: absolute; left: 12px; top: 10px; color: var(--text3);">${Icons['shield-check'](16)}</span>
+                  <input type="password" id="login-password" class="form-input" style="padding-left: 36px;" required placeholder="Enter password" autocomplete="current-password">
                 </div>
-                <div style="color: var(--border2);">${Icons['arrow-right'](16)}</div>
-              </button>
+              </div>
 
-              <!-- Guard -->
-              <button class="btn btn-login-role" data-role="guard" data-name="Guard Santos" style="width: 100%; justify-content: space-between; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="color: var(--green);">${Icons['scan-line'](20)}</div>
-                  <div style="text-align: left;">
-                    <div style="font-weight: 700;">Gate Guard</div>
-                    <div style="font-size: 11px; color: var(--text3); font-weight: 400;">Scanner Operations</div>
-                  </div>
-                </div>
-                <div style="color: var(--border2);">${Icons['arrow-right'](16)}</div>
+              <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px; font-size: 14px;" id="btn-login-submit">
+                Secure Login ${Icons['arrow-right'](16)}
               </button>
-            </div>
+            </form>
 
             <div style="margin-top: 24px; text-align: center; font-size: 11px; color: var(--text3);">
-              Role-Based Access Control (RBAC) Demonstration Mode
+              Access is restricted to authorized personnel only. All logins are tracked and logged.
             </div>
           </div>
         </div>

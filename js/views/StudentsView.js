@@ -99,32 +99,42 @@ export default class StudentsView {
                 </div>
               </div>
 
-              <!-- Step 2: Academic -->
+              <!-- Step 2: Academic & Exit -->
               <div class="wizard-panel" id="panel-step-2" style="display: none;">
                 <div class="form-grid mb-12">
                   <div class="form-group">
                     <label>Grade Level</label>
                     <select id="w-grade" class="form-input" required>
                       <option value="">Select Grade</option>
-                      <option value="Pre-School">Pre-School</option>
-                      <option value="Grade 1">Grade 1</option>
-                      <option value="Grade 2">Grade 2</option>
-                      <option value="Grade 3">Grade 3</option>
-                      <option value="Grade 4">Grade 4</option>
-                      <option value="Grade 5">Grade 5</option>
-                      <option value="Grade 6">Grade 6</option>
-                      <option value="Grade 7">Grade 7</option>
-                      <option value="Grade 8">Grade 8</option>
-                      <option value="Grade 9">Grade 9</option>
-                      <option value="Grade 10">Grade 10</option>
-                      <option value="Grade 11">Grade 11</option>
-                      <option value="Grade 12">Grade 12</option>
+                      <option value="7th Grade">7th Grade</option>
+                      <option value="8th Grade">8th Grade</option>
+                      <option value="9th Grade">9th Grade</option>
+                      <option value="10th Grade">10th Grade</option>
+                      <option value="11th Grade">11th Grade</option>
+                      <option value="12th Grade">12th Grade</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label>Section</label>
-                    <input type="text" id="w-section" class="form-input" placeholder="e.g. Diligence">
+                    <label>Preferred Gate</label>
+                    <select id="w-gate" class="form-input">
+                      <option value="">Select Gate...</option>
+                      <option value="Main Gate">Main Gate</option>
+                      <option value="Gate 1">Gate 1</option>
+                      <option value="Gate 2">Gate 2</option>
+                    </select>
                   </div>
+                </div>
+                <div class="form-group mb-12">
+                  <label>Arrangements</label>
+                  <select id="w-arrangements" class="form-input">
+                    <option value="">Select Arrangement...</option>
+                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
+                    <option value="Will go home by herself/himself">Will go home by herself/himself</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Vehicle Details (Make, Model, Color, Plate)</label>
+                  <input type="text" id="w-vehicle" class="form-input" placeholder="e.g. Red Toyota Vios ABC-123">
                 </div>
               </div>
 
@@ -154,7 +164,10 @@ export default class StudentsView {
                     <div><strong>Name:</strong> <span id="r-name"></span></div>
                     <div><strong>ID:</strong> <span id="r-studid"></span></div>
                     <div><strong>Grade:</strong> <span id="r-grade"></span></div>
-                    <div><strong>Guardian:</strong> <span id="r-guardian"></span></div>
+                    <div><strong>Gate:</strong> <span id="r-gate"></span></div>
+                    <div style="grid-column: 1 / -1;"><strong>Arrangement:</strong> <span id="r-arrangements"></span></div>
+                    <div style="grid-column: 1 / -1;"><strong>Vehicle:</strong> <span id="r-vehicle"></span></div>
+                    <div style="grid-column: 1 / -1; margin-top:8px;"><strong>Guardian:</strong> <span id="r-guardian"></span></div>
                     <div style="grid-column: 1 / -1;"><strong>Email:</strong> <span id="r-email"></span></div>
                   </div>
                 </div>

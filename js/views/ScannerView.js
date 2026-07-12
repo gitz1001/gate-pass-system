@@ -173,10 +173,13 @@ export default class ScannerView {
         <div style="flex: 1;">
           <div style="font-weight: 800; font-size: 16px; color: ${color};">${isDenied ? 'EXIT DENIED' : 'EXIT GRANTED'}</div>
           <div style="font-size: 14px; font-weight: 600; color: var(--text); margin: 2px 0;">${escapeHTML(student.name)} (${escapeHTML(student.studid || student.id)})</div>
-          <div style="font-size: 12px; color: var(--text2);">${escapeHTML(student.grade)} · ${escapeHTML(student.section || '')}</div>
-          ${message ? `<div style="font-size: 12px; font-weight: 600; margin-top: 4px; color: ${color};">${escapeHTML(message)}</div>` : ''}
+          <div style="font-size: 12px; color: var(--text2); margin-bottom: 4px;">${escapeHTML(student.grade)}</div>
+          ${student.preferredGate ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Gate:</b> ${escapeHTML(student.preferredGate)}</div>` : ''}
+          ${student.arrangements ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Arrangement:</b> ${escapeHTML(student.arrangements)}</div>` : ''}
+          ${student.vehicleDetails ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Vehicle:</b> ${escapeHTML(student.vehicleDetails)}</div>` : ''}
+          ${message ? `<div style="font-size: 12px; font-weight: 600; margin-top: 6px; color: ${color};">${escapeHTML(message)}</div>` : ''}
         </div>
-        ${student.photo ? `<div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid ${border};"><img src="${escapeHTML(student.photo)}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
+        ${student.photo ? `<div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid ${border}; flex-shrink: 0;"><img src="${escapeHTML(student.photo)}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
       </div>
     `;
   }

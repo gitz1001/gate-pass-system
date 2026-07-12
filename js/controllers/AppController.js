@@ -77,12 +77,12 @@ export default class AppController {
       this.performSync();
     }
 
-    // Auto-poll every 30 seconds
+    // Auto-poll every 15 seconds (Optimized for 5-7 guards)
     setInterval(() => {
       if (this.model.currentUser && navigator.onLine) {
         this.performSync();
       }
-    }, 30000);
+    }, 15000);
 
     // Update UI timer every second
     setInterval(() => {
@@ -112,6 +112,13 @@ export default class AppController {
     const success = await this.model.syncFromSheet();
     
     if (success && this.model.currentUser) {
+      // SECURITY CHECK: Ensure the currently logged-in user still exists in the database
+      const validUser = this.model.users.find(u => u.username === this.model.currentUser.username);
+      if (!validUser) {
+        this.performLogout('Your account is no longer valid. Please log in again.');
+        return;
+      }
+
       // Re-render current page to show new data
       this.view.showPage(this.view.currentPage, this.model);
       this.bindPageEvents(this.view.currentPage);
@@ -318,7 +325,9 @@ export default class AppController {
     const name = document.getElementById('w-name').value;
     const studid = document.getElementById('w-studid').value;
     const grade = document.getElementById('w-grade').value;
-    const section = document.getElementById('w-section').value;
+    const gate = document.getElementById('w-gate').value;
+    const arrangements = document.getElementById('w-arrangements').value;
+    const vehicle = document.getElementById('w-vehicle').value;
     const parentName = document.getElementById('w-parent-name').value;
     const parentEmail = document.getElementById('w-parent-email').value;
     const parentPhone = document.getElementById('w-parent-phone').value;
@@ -328,7 +337,9 @@ export default class AppController {
       name,
       studid,
       grade,
-      section,
+      preferredGate: gate,
+      arrangements,
+      vehicleDetails: vehicle,
       parentName,
       parentEmail,
       phone: parentPhone,

@@ -1,22 +1,18 @@
 {
-  "name": "SISC Gate Pass System",
-  "short_name": "PGP System",
-  "description": "Permanent Gate Pass System for student exit verification and parent notification.",
+  "name": "PGP System",
+  "short_name": "PGP Scanner",
+  "description": "Permanent Gate Pass System for SISC",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#422467",
-  "theme_color": "#422467",
-  "orientation": "portrait",
+  "background_color": "#f8f9fa",
+  "theme_color": "#00c9b1",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300c9b1' rx='20'/><text x='50' y='65' font-family='Arial' font-size='50' font-weight='bold' fill='%23003d35' text-anchor='middle'>S</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
-    },
-    {
-      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300c9b1' rx='20'/><text x='50' y='65' font-family='Arial' font-size='50' font-weight='bold' fill='%23003d35' text-anchor='middle'>S</text></svg>",
+      "src": "https://cdn-icons-png.flaticon.com/512/3616/3616053.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

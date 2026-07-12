@@ -48,7 +48,10 @@ export default class StudentsController {
           }
           document.getElementById('r-name').textContent = document.getElementById('w-name').value;
           document.getElementById('r-studid').textContent = document.getElementById('w-studid').value;
-          document.getElementById('r-grade').textContent = document.getElementById('w-grade').value + ' ' + document.getElementById('w-section').value;
+          document.getElementById('r-grade').textContent = document.getElementById('w-grade').value;
+          document.getElementById('r-gate').textContent = document.getElementById('w-gate').value || 'Any';
+          document.getElementById('r-arrangements').textContent = document.getElementById('w-arrangements').value || 'None specified';
+          document.getElementById('r-vehicle').textContent = document.getElementById('w-vehicle').value || 'None';
           document.getElementById('r-guardian').textContent = document.getElementById('w-parent-name').value;
           document.getElementById('r-email').textContent = document.getElementById('w-parent-email').value;
         }
