@@ -1,61 +1,213 @@
+import SheetsService from '../services/SheetsService.js';
+
+// ════════════════════════════════════════════════════════════════
+// AppModel — Data Layer with Google Sheets + localStorage Cache
+// ════════════════════════════════════════════════════════════════
+// Data flows:
+//   READ:  Google Sheet → localStorage cache → Views
+//   WRITE: Views → Google Sheet + localStorage cache
+//   OFFLINE: Falls back to localStorage cache automatically
+// ════════════════════════════════════════════════════════════════
+
 export default class AppModel {
   constructor() {
+    // Load cached data from localStorage (instant load)
     this.students = JSON.parse(localStorage.getItem('pgp_students') || '[]');
     this.exitLogs = JSON.parse(localStorage.getItem('pgp_logs') || '[]');
     this.tgp = JSON.parse(localStorage.getItem('pgp_tgp') || '[]');
+    this.users = JSON.parse(localStorage.getItem('pgp_users') || '[]');
     this.emailQueue = JSON.parse(localStorage.getItem('pgp_email_queue') || '[]');
 
-    // Session: requires BOTH localStorage (profile) AND sessionStorage (browser-alive flag)
+    // Session management
     const profile = JSON.parse(localStorage.getItem('pgp_session') || 'null');
     const browserAlive = sessionStorage.getItem('pgp_browser_alive');
     this.currentUser = (profile && browserAlive) ? profile : null;
+    if (profile && !browserAlive) localStorage.removeItem('pgp_session');
 
-    // If profile exists but browser flag is gone (tab was closed), clear stale session
-    if (profile && !browserAlive) {
-      localStorage.removeItem('pgp_session');
-    }
+    // Sync state
+    this.lastSyncTime = parseInt(localStorage.getItem('pgp_last_sync') || '0');
+    this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'error'
+    this.isOnline = navigator.onLine;
 
-    // Session timeout (15 minutes = 900000ms)
+    // Session timeout (15 minutes)
     this.SESSION_TIMEOUT = 15 * 60 * 1000;
+
+    // Offline write queue (for writes that failed due to no internet)
+    this.writeQueue = JSON.parse(localStorage.getItem('pgp_write_queue') || '[]');
   }
 
-  async save() {
-    await Promise.all([this.saveStudents(), this.saveLogs(), this.saveTGP()]);
+  // ════════════════════════════════════════════════════════════
+  // SYNC ENGINE — Pulls fresh data from Google Sheets
+  // ════════════════════════════════════════════════════════════
+
+  async syncFromSheet() {
+    this.syncStatus = 'syncing';
+    try {
+      const data = await SheetsService.getAll();
+
+      // Map Sheet columns to frontend field names
+      this.students = (data.students || []).map(s => this.mapStudentFromSheet(s));
+      this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      this.tgp = data.temporary_passes || [];
+      this.users = data.users || [];
+
+      // Cache to localStorage
+      this.cacheAll();
+      this.lastSyncTime = Date.now();
+      localStorage.setItem('pgp_last_sync', this.lastSyncTime.toString());
+      this.syncStatus = 'idle';
+      this.isOnline = true;
+
+      // Process any queued offline writes
+      await this.processWriteQueue();
+
+      return true;
+    } catch (err) {
+      console.error('Sync failed:', err);
+      this.syncStatus = 'error';
+      this.isOnline = false;
+      return false;
+    }
   }
 
-  async saveStudents() {
+  // ── Field Mapping: Sheet → Frontend ───────────────────────
+  mapStudentFromSheet(s) {
+    return {
+      id: String(s.PassID || ''),
+      pgp: String(s.PassID || ''),
+      studid: String(s.StudentID || ''),
+      lastName: s.LastName || '',
+      firstName: s.FirstName || '',
+      midName: s.MidName || '',
+      name: this.buildFullName(s.LastName, s.FirstName, s.MidName),
+      grade: this.extractGrade(s.Section || ''),
+      section: this.extractSection(s.Section || ''),
+      fullSection: s.Section || '',
+      schoolYear: s.SchoolYear || '',
+      dismissal: s.Dismissal || '',
+      parentName: s.ParentName || '',
+      parentEmail: s.ParentEmail || '',
+      phone: String(s.ParentMobile || ''),
+      address: s.Address || '',
+      photo: s.photo || '',
+      status: s.status || 'active'
+    };
+  }
+
+  // ── Field Mapping: Frontend → Sheet ───────────────────────
+  mapStudentToSheet(s) {
+    return {
+      PassID: s.pgp || s.id || '',
+      StudentID: s.studid || '',
+      LastName: s.lastName || '',
+      FirstName: s.firstName || '',
+      MidName: s.midName || '',
+      Section: s.fullSection || (s.grade + (s.section ? ' - ' + s.section : '')),
+      SchoolYear: s.schoolYear || '',
+      Dismissal: s.dismissal || '',
+      ParentName: s.parentName || '',
+      ParentEmail: s.parentEmail || '',
+      ParentMobile: s.phone || '',
+      Address: s.address || '',
+      photo: s.photo || '',
+      status: s.status || 'active'
+    };
+  }
+
+  // ── Name Helpers ──────────────────────────────────────────
+  buildFullName(last, first, mid) {
+    const parts = [];
+    if (last) parts.push(last + ',');
+    if (first) parts.push(first);
+    if (mid) parts.push(mid.charAt(0) + '.');
+    return parts.join(' ') || 'Unknown';
+  }
+
+  extractGrade(section) {
+    // "Grade 7 - Diligence" → "Grade 7"
+    const match = section.match(/^(.*?)\s*-/);
+    return match ? match[1].trim() : section;
+  }
+
+  extractSection(section) {
+    // "Grade 7 - Diligence" → "Diligence"
+    const match = section.match(/-\s*(.+)$/);
+    return match ? match[1].trim() : '';
+  }
+
+  // ── Cache all data to localStorage ────────────────────────
+  cacheAll() {
     localStorage.setItem('pgp_students', JSON.stringify(this.students));
-    return Promise.resolve();
-  }
-
-  async saveLogs() {
     localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
-    return Promise.resolve();
-  }
-
-  async saveTGP() {
     localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
-    return Promise.resolve();
+    localStorage.setItem('pgp_users', JSON.stringify(this.users));
   }
 
-  async saveEmailQueue() {
-    localStorage.setItem('pgp_email_queue', JSON.stringify(this.emailQueue));
-    return Promise.resolve();
+  // ════════════════════════════════════════════════════════════
+  // OFFLINE WRITE QUEUE
+  // ════════════════════════════════════════════════════════════
+
+  async queueWrite(action, data) {
+    this.writeQueue.push({ action, data, timestamp: Date.now() });
+    localStorage.setItem('pgp_write_queue', JSON.stringify(this.writeQueue));
   }
 
-  // ── Student CRUD ────────────────────────────────────────
+  async processWriteQueue() {
+    if (this.writeQueue.length === 0) return;
+    console.log(`Processing ${this.writeQueue.length} queued writes...`);
+
+    const remaining = [];
+    for (const item of this.writeQueue) {
+      try {
+        if (item.action === 'addStudent') await SheetsService.addStudent(item.data);
+        else if (item.action === 'addLog') await SheetsService.addLog(item.data);
+        else if (item.action === 'addTGP') await SheetsService.addTGP(item.data);
+        else if (item.action === 'updateTGPStatus') await SheetsService.updateTGPStatus(item.data.id, item.data.status);
+        else if (item.action === 'updateStudentStatus') await SheetsService.updateStudentStatus(item.data.id, item.data.status);
+        else if (item.action === 'removeStudent') await SheetsService.removeStudent(item.data.id);
+        console.log('Queued write sent:', item.action);
+      } catch (err) {
+        console.error('Queued write failed, keeping in queue:', err);
+        remaining.push(item);
+      }
+    }
+    this.writeQueue = remaining;
+    localStorage.setItem('pgp_write_queue', JSON.stringify(this.writeQueue));
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // STUDENT CRUD — Writes to Sheet + updates local cache
+  // ════════════════════════════════════════════════════════════
+
   async addStudent(student) {
+    // Add to local cache immediately
     this.students.push(student);
-    await this.saveStudents();
+    localStorage.setItem('pgp_students', JSON.stringify(this.students));
+
+    // Write to Sheet
+    const sheetData = this.mapStudentToSheet(student);
+    try {
+      await SheetsService.addStudent(sheetData);
+    } catch (err) {
+      console.error('Failed to write student to Sheet, queuing...', err);
+      await this.queueWrite('addStudent', sheetData);
+    }
   }
 
   async removeStudent(id) {
     this.students = this.students.filter(s => s.id !== id);
-    await this.saveStudents();
+    localStorage.setItem('pgp_students', JSON.stringify(this.students));
+
+    try {
+      await SheetsService.removeStudent(id);
+    } catch (err) {
+      console.error('Failed to remove student from Sheet, queuing...', err);
+      await this.queueWrite('removeStudent', { id });
+    }
   }
 
   getStudentByPassId(id) {
-    return this.students.find(s => s.id === id);
+    return this.students.find(s => s.id === id || s.pgp === id);
   }
 
   getStudentByStudId(studid) {
@@ -66,43 +218,80 @@ export default class AppModel {
     const student = this.students.find(s => s.id === id);
     if (student) {
       student.status = status;
-      await this.saveStudents();
+      localStorage.setItem('pgp_students', JSON.stringify(this.students));
+
+      try {
+        await SheetsService.updateStudentStatus(id, status);
+      } catch (err) {
+        console.error('Failed to update status on Sheet, queuing...', err);
+        await this.queueWrite('updateStudentStatus', { id, status });
+      }
     }
   }
 
-  // ── Exit Log CRUD ───────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // EXIT LOG CRUD
+  // ════════════════════════════════════════════════════════════
+
   async addExitLog(logEntry) {
     this.exitLogs.unshift(logEntry);
-    await this.saveLogs();
+    localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
+
+    try {
+      await SheetsService.addLog(logEntry);
+    } catch (err) {
+      console.error('Failed to write log to Sheet, queuing...', err);
+      await this.queueWrite('addLog', logEntry);
+    }
   }
 
   async clearLogs() {
     this.exitLogs = [];
-    await this.saveLogs();
+    localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
   }
 
-  // ── Email Queue CRUD ────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // EMAIL QUEUE
+  // ════════════════════════════════════════════════════════════
+
   async addEmailToQueue(emailParams) {
     this.emailQueue.push(emailParams);
-    await this.saveEmailQueue();
+    localStorage.setItem('pgp_email_queue', JSON.stringify(this.emailQueue));
   }
 
   async removeEmailFromQueue(index) {
     this.emailQueue.splice(index, 1);
-    await this.saveEmailQueue();
+    localStorage.setItem('pgp_email_queue', JSON.stringify(this.emailQueue));
   }
 
-  // ── TGP CRUD ────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // TGP CRUD
+  // ════════════════════════════════════════════════════════════
+
   async addTGP(tgpEntry) {
     this.tgp.unshift(tgpEntry);
-    await this.saveTGP();
+    localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
+
+    try {
+      await SheetsService.addTGP(tgpEntry);
+    } catch (err) {
+      console.error('Failed to write TGP to Sheet, queuing...', err);
+      await this.queueWrite('addTGP', tgpEntry);
+    }
   }
 
   async updateTGPStatus(id, status) {
     const pass = this.tgp.find(t => t.id === id);
     if (pass) {
       pass.status = status;
-      await this.saveTGP();
+      localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
+
+      try {
+        await SheetsService.updateTGPStatus(id, status);
+      } catch (err) {
+        console.error('Failed to update TGP status on Sheet, queuing...', err);
+        await this.queueWrite('updateTGPStatus', { id, status });
+      }
     }
   }
 
@@ -110,34 +299,44 @@ export default class AppModel {
     return this.tgp.find(t => t.id === id);
   }
 
-  // ── Theme Preference ───────────────────────────────────
-  getTheme() {
-    return localStorage.getItem('pgp_theme') || null;
-  }
+  // ════════════════════════════════════════════════════════════
+  // AUTHENTICATION — Now checks against users from Google Sheet
+  // ════════════════════════════════════════════════════════════
 
-  setTheme(theme) {
-    if (theme) {
-      localStorage.setItem('pgp_theme', theme);
-    } else {
-      localStorage.removeItem('pgp_theme');
+  async authenticateUser(username, password) {
+    // Try to fetch fresh users from sheet first
+    try {
+      this.users = await SheetsService.getUsers();
+      localStorage.setItem('pgp_users', JSON.stringify(this.users));
+    } catch (err) {
+      console.warn('Could not fetch users from Sheet, using cached data');
+      // users already loaded from localStorage cache
     }
+
+    const user = this.users.find(u =>
+      u.username === username && u.password === password
+    );
+
+    if (user) {
+      const userPayload = {
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        gate: user.gate || '',
+        loginTime: new Date().toISOString(),
+        lastActivity: Date.now()
+      };
+      this.currentUser = userPayload;
+      localStorage.setItem('pgp_session', JSON.stringify(userPayload));
+      sessionStorage.setItem('pgp_browser_alive', '1');
+      return userPayload;
+    }
+    return null;
   }
 
-  // ── Sidebar State ──────────────────────────────────────
-  getSidebarCollapsed() {
-    return localStorage.getItem('pgp_sidebar') === 'collapsed';
-  }
-
-  setSidebarCollapsed(collapsed) {
-    localStorage.setItem('pgp_sidebar', collapsed ? 'collapsed' : 'expanded');
-  }
-
-  // ── Authentication ───────────────────────────────────────
   login(userPayload) {
-    // Enrich payload with metadata
     userPayload.loginTime = new Date().toISOString();
     userPayload.lastActivity = Date.now();
-
     this.currentUser = userPayload;
     localStorage.setItem('pgp_session', JSON.stringify(userPayload));
     sessionStorage.setItem('pgp_browser_alive', '1');
@@ -149,7 +348,16 @@ export default class AppModel {
     sessionStorage.removeItem('pgp_browser_alive');
   }
 
-  // ── Activity Tracking ──────────────────────────────────
+  // ── Theme / Sidebar / Session ─────────────────────────────
+  getTheme() { return localStorage.getItem('pgp_theme') || null; }
+  setTheme(theme) {
+    if (theme) localStorage.setItem('pgp_theme', theme);
+    else localStorage.removeItem('pgp_theme');
+  }
+
+  getSidebarCollapsed() { return localStorage.getItem('pgp_sidebar') === 'collapsed'; }
+  setSidebarCollapsed(c) { localStorage.setItem('pgp_sidebar', c ? 'collapsed' : 'expanded'); }
+
   updateActivity() {
     if (!this.currentUser) return;
     this.currentUser.lastActivity = Date.now();

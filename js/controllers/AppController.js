@@ -46,6 +46,9 @@ export default class AppController {
     // Offline queue processing
     window.addEventListener('online', () => this.processEmailQueue());
     this.processEmailQueue();
+
+    // 5. Initialize Sync Engine
+    this.initSync();
   }
 
   async processEmailQueue() {
@@ -66,6 +69,57 @@ export default class AppController {
         break; // Stop processing if one fails (no internet)
       }
     }
+  }
+
+  // ── Sync Engine ────────────────────────────────────────
+  initSync() {
+    if (this.model.currentUser) {
+      this.performSync();
+    }
+
+    // Auto-poll every 30 seconds
+    setInterval(() => {
+      if (this.model.currentUser && navigator.onLine) {
+        this.performSync();
+      }
+    }, 30000);
+
+    // Update UI timer every second
+    setInterval(() => {
+      if (this.model.currentUser) this.view.renderSyncStatus(this.model);
+    }, 1000);
+
+    const btnSync = document.getElementById('btn-sync');
+    if (btnSync) btnSync.addEventListener('click', () => this.performSync());
+
+    window.addEventListener('online', () => {
+      this.model.isOnline = true;
+      if (this.model.currentUser) this.performSync();
+    });
+    window.addEventListener('offline', () => {
+      this.model.isOnline = false;
+      this.view.renderSyncStatus(this.model);
+    });
+  }
+
+  async performSync() {
+    if (this.model.syncStatus === 'syncing' || !navigator.onLine) return;
+    
+    // UI update
+    this.model.syncStatus = 'syncing';
+    this.view.renderSyncStatus(this.model);
+    
+    const success = await this.model.syncFromSheet();
+    
+    if (success && this.model.currentUser) {
+      // Re-render current page to show new data
+      this.view.showPage(this.view.currentPage, this.model);
+      this.bindPageEvents(this.view.currentPage);
+    } else if (!success) {
+      this.view.showToast('Sync failed. Using offline cache.', 'error');
+    }
+    
+    this.view.renderSyncStatus(this.model);
   }
 
   // ── Navigation Wrapper ─────────────────────────────────
@@ -141,10 +195,20 @@ export default class AppController {
       });
     }
 
-    // Mobile Sidebar Toggle
+    // Topbar Menu Button (Mobile / Desktop)
     const btnMenu = document.getElementById('btn-menu');
     const overlay = document.getElementById('sidebar-overlay');
-    if (btnMenu) btnMenu.addEventListener('click', () => this.view.openMobileSidebar());
+    if (btnMenu) {
+      btnMenu.addEventListener('click', () => {
+        if (window.innerWidth <= 767) {
+          this.view.openMobileSidebar();
+        } else {
+          const isCollapsed = !document.getElementById('sidebar').classList.contains('collapsed');
+          this.model.setSidebarCollapsed(isCollapsed);
+          this.view.setSidebarCollapsed(isCollapsed);
+        }
+      });
+    }
     if (overlay) overlay.addEventListener('click', () => this.view.closeMobileSidebar());
 
     // Navigation Delegation (Sidebar & Bottom Nav)

@@ -151,6 +151,29 @@ export default class AppView {
     `).join('');
   }
 
+  // ── Sync UI ───────────────────────────────────────────
+  renderSyncStatus(model) {
+    const dot = document.getElementById('sync-dot');
+    const text = document.getElementById('sync-text');
+    if (!dot || !text) return;
+
+    if (!model.isOnline) {
+      dot.className = 'badge b-denied';
+      text.textContent = 'Offline';
+    } else if (model.syncStatus === 'syncing') {
+      dot.className = 'badge b-pending';
+      text.textContent = 'Syncing...';
+    } else {
+      dot.className = 'badge b-active';
+      if (model.lastSyncTime) {
+        const secs = Math.floor((Date.now() - model.lastSyncTime) / 1000);
+        text.textContent = secs < 60 ? `Synced ${secs}s ago` : `Synced ${Math.floor(secs/60)}m ago`;
+      } else {
+        text.textContent = 'Online';
+      }
+    }
+  }
+
   // ── Render topbar icons ───────────────────────────────
   renderTopbarIcons(isDark) {
     const menuIcon = document.getElementById('menu-icon');

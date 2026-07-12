@@ -7,6 +7,7 @@ export default class LoginController {
         const name = target.dataset.name;
         controller.model.login({ role, name });
         controller.view.showToast(`Logged in as ${name}`);
+        controller.performSync();
         controller.navigateToPage('dashboard');
       });
     });
