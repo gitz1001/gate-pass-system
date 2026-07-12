@@ -13,9 +13,14 @@ export default class StudentsView {
             <div class="card-sub">Manage active students and generating passes</div>
           </div>
           ${model.currentUser && model.currentUser.role !== 'guard' ? `
-          <button class="btn btn-primary btn-sm" id="btn-add-student">
-            ${Icons['plus'](14)} Enroll Student
-          </button>
+          <div class="flex gap-8">
+            <button class="btn btn-ghost btn-sm" id="btn-import-csv">
+              ${Icons['file-text'](14)} Import CSV
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-add-student">
+              ${Icons['plus'](14)} Enroll Student
+            </button>
+          </div>
           ` : ''}
         </div>
         
@@ -168,6 +173,45 @@ export default class StudentsView {
         </div>
       </div>
       
+      <!-- CSV Import Modal -->
+      <div id="modal-csv-import" class="overlay" style="display: none;">
+        <div class="modal modal-lg">
+          <div class="modal-head">
+            <div class="modal-title">Import Students from CSV</div>
+            <button class="close-btn" id="btn-close-csv">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body">
+            <div style="background: var(--blue-s); border-left: 3px solid var(--blue); padding: 12px 16px; border-radius: var(--radius-sm); display: flex; gap: 12px; margin-bottom: 20px;">
+              <div style="color: var(--blue);">${Icons['info'](20)}</div>
+              <div>
+                <div style="font-weight: 700; font-size: 13px; color: var(--blue);">CSV Format Guide</div>
+                <div style="font-size: 11.5px; color: var(--text2); margin-top: 2px;">
+                  Required columns: <strong>name, studid, grade</strong><br>
+                  Optional columns: <strong>section, parentname, parentemail, phone</strong><br>
+                  First row must be headers. Duplicate Student IDs will be skipped.
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:16px;font-family:monospace;font-size:11px;color:var(--text2);overflow-x:auto;">
+              name,studid,grade,section,parentname,parentemail,phone<br>
+              "Dela Cruz, Juan",23-1001,Grade 7,Diligence,Maria Dela Cruz,maria@email.com,09171234567
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label>Upload CSV File</label>
+              <input type="file" id="csv-file-input" accept=".csv" class="form-input">
+            </div>
+            
+            <div id="csv-preview"></div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="btn btn-ghost" id="btn-cancel-csv">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-submit-csv">${Icons['plus'](14)} Import Students</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Virtual ID Card Modal -->
       <div id="modal-idcard" class="overlay" style="display: none;">
         <div class="modal" style="width: 360px;">

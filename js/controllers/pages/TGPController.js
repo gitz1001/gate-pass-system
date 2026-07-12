@@ -58,6 +58,9 @@ export default class TGPController {
       });
     });
 
+    // View TGP Card (QR Code)
+    TGPController.bindTGPCard(controller);
+
     // Pill filters
     const pills = document.querySelectorAll('#tgp-table-filters .pill, button.pill[data-filter]');
     pills.forEach(pill => {
@@ -74,5 +77,93 @@ export default class TGPController {
         });
       });
     });
+  }
+
+  static bindTGPCard(controller) {
+    const modalCard = document.getElementById('modal-tgp-card');
+    const btnCloseCard = document.getElementById('btn-close-tgp-card');
+
+    if (btnCloseCard && modalCard) {
+      btnCloseCard.addEventListener('click', () => modalCard.style.display = 'none');
+    }
+
+    // View Pass buttons
+    document.querySelectorAll('.btn-view-tgp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tgpId = e.currentTarget.dataset.id;
+        const tgp = controller.model.tgp.find(t => t.id === tgpId);
+        if (!tgp) return;
+
+        const student = controller.model.getStudentByPassId(tgp.studentId) || controller.model.getStudentByStudId(tgp.studentId);
+        const sName = student ? student.name : 'Unknown Student';
+        const sGrade = student ? `${student.grade} ${student.section ? '- ' + student.section : ''}` : '';
+        const dateStr = new Date(tgp.validDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+
+        const photoHtml = student && student.photo
+          ? `<img src="${student.photo}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#e08700;">${sName.substring(0,2).toUpperCase()}</div>`;
+
+        const target = document.getElementById('tgp-card-render-target');
+        target.innerHTML = `
+          <div id="tgp-card-capture" style="width:300px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">
+            <div style="background:linear-gradient(135deg,#e08700,#f5a623);padding:15px;text-align:center;color:#fff;">
+              <div style="font-size:14px;font-weight:800;letter-spacing:1px;">SOUTHVILLE INTERNATIONAL</div>
+              <div style="font-size:10px;color:#fff;font-weight:700;margin-top:2px;opacity:0.9;">TEMPORARY GATE PASS</div>
+            </div>
+            <div style="padding:20px;text-align:center;">
+              <div style="width:80px;height:80px;margin:0 auto 12px;border-radius:10px;border:3px solid #e08700;overflow:hidden;background:#fef3e0;">${photoHtml}</div>
+              <div style="font-size:18px;font-weight:800;color:#1f2937;margin-bottom:2px;">${sName}</div>
+              <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:12px;">${sGrade}</div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;margin-bottom:16px;">
+                <div style="background:#fef3e0;padding:8px 10px;border-radius:6px;">
+                  <div style="font-size:9px;color:#b06c00;text-transform:uppercase;font-weight:700;">Valid Date</div>
+                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${dateStr}</div>
+                </div>
+                <div style="background:#fef3e0;padding:8px 10px;border-radius:6px;">
+                  <div style="font-size:9px;color:#b06c00;text-transform:uppercase;font-weight:700;">Gate</div>
+                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${tgp.gate}</div>
+                </div>
+              </div>
+
+              <div style="background:#f5f4f8;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;">
+                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Scan to Verify</div>
+                <div id="tgp-qrcode"></div>
+                <div style="font-size:11px;font-weight:700;font-family:monospace;color:#e08700;margin-top:5px;letter-spacing:1px;">${tgp.id}</div>
+              </div>
+            </div>
+            <div style="background:#e08700;padding:8px;text-align:center;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.5px;">ONE-DAY PASS · REQUIRES APPROVAL · ${tgp.requester ? 'Requested by: ' + tgp.requester : ''}</div>
+          </div>`;
+
+        // Generate QR Code
+        setTimeout(() => {
+          const qrTarget = document.getElementById('tgp-qrcode');
+          if (qrTarget && typeof QRCode !== 'undefined') {
+            new QRCode(qrTarget, { text: tgp.id, width: 90, height: 90, colorDark: "#1f2937", colorLight: "#f5f4f8" });
+          }
+        }, 50);
+
+        modalCard.style.display = 'flex';
+      });
+    });
+
+    // Download TGP Card
+    const btnDownload = document.getElementById('btn-download-tgp');
+    if (btnDownload) {
+      btnDownload.addEventListener('click', () => {
+        const captureArea = document.getElementById('tgp-card-capture');
+        if (!captureArea) return;
+        btnDownload.innerHTML = 'Generating...';
+        btnDownload.disabled = true;
+        html2canvas(captureArea, { scale: 3 }).then(canvas => {
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL("image/png");
+          a.download = `TGP_Card_${Date.now()}.png`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          btnDownload.innerHTML = 'Download Image';
+          btnDownload.disabled = false;
+        });
+      });
+    }
   }
 }

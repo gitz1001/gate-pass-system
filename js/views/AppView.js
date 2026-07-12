@@ -249,6 +249,11 @@ export default class AppView {
   setSidebarCollapsed(collapsed) {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('collapsed', collapsed);
+    
+    const collapseIcon = document.getElementById('collapse-icon');
+    if (collapseIcon) {
+      collapseIcon.innerHTML = collapsed ? Icons['arrow-right'](14) : Icons['chevron-left'](14);
+    }
   }
 
   // ── Mobile sidebar ────────────────────────────────────

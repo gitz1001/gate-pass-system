@@ -105,6 +105,29 @@ export default class TGPView {
           </div>
         </div>
       </div>
+
+      ${this.renderTGPCardModal()}
+    `;
+  }
+
+  static renderTGPCardModal() {
+    return `
+      <div id="modal-tgp-card" class="overlay" style="display: none;">
+        <div class="modal" style="width: 360px;">
+          <div class="modal-head">
+            <div class="modal-title">Temporary Gate Pass</div>
+            <button class="close-btn" id="btn-close-tgp-card">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body" style="background: #f5f4f8;">
+             <div id="tgp-card-render-target"></div>
+          </div>
+          <div class="modal-foot" style="justify-content: center;">
+            <button class="btn btn-primary" id="btn-download-tgp">
+              ${Icons['download'](14)} Download Image
+            </button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -153,8 +176,12 @@ export default class TGPView {
                 <button class="btn btn-danger btn-sm btn-tgp-action" data-id="${t.id}" data-action="rejected" title="Reject">
                   ${Icons['x-circle'](14)}
                 </button>
+              ` : t.status === 'approved' ? `
+                <button class="btn btn-ghost btn-sm btn-view-tgp" data-id="${t.id}" title="View TGP Card">
+                  ${Icons['id-card'](14)} View Pass
+                </button>
               ` : `
-                <span style="font-size: 11px; color: var(--text3);">Completed</span>
+                <span style="font-size: 11px; color: var(--text3);">Rejected</span>
               `}
             </div>
           </td>
