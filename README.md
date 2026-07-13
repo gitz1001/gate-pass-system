@@ -1,38 +1,38 @@
-# gate-pass-system
-# 🛡️ PGP — Permanent Gate Pass System
+# 🛡️ e-gatepass System
 
-A digital gate pass management system for Student Affairs, enabling student enrollment, QR-based exit verification, and automated parent email notifications.
+A robust, offline-capable Progressive Web App (PWA) designed for Student Affairs. The **e-gatepass System** streamlines student exit verification, automates parent notifications, and provides a secure, role-based dashboard for school administrators and security personnel.
 
-Built for **SISC**
+Built for **SISC**.
 
 ---
 
-## 📸 Features
+## 📸 Key Features
 
-### 🎓 Student Enrollment (Admin Panel)
-- Register students with full details (name, ID, section, school year, guardian info)
-- Upload student photos for digital ID cards
-- Configurable dismissal arrangements (Fetched, Independent, School Bus)
-- Real-time enrollment statistics dashboard
+### 🔐 Role-Based Access Control (RBAC)
+- **Admin**: Full system control, user management, and advanced settings.
+- **Secretary**: Student enrollment, Temporary Gate Pass (TGP) issuance, and reporting.
+- **Guard**: Access restricted to the live Gate Scanner and exit feed.
 
-### 📱 QR-Based Gate Scanner
-- **Live camera scanning** — Point at a student's QR code for instant verification
-- **Image upload fallback** — Upload a screenshot of the QR code if camera fails
-- **Manual ID lookup** — Type a Student ID for text-based verification
-- Multi-gate support (Main Gate, Side Gate A/B, Back Gate)
-- 4-second scan cooldown to prevent duplicate logs
+### 📶 Offline-First PWA & Cloud Sync
+- **Progressive Web App**: Installable on desktop and mobile devices. Works 100% offline using Service Workers and local caching.
+- **Cloud Database Engine**: Seamlessly synchronizes data with Google Sheets for secure, centralized storage.
+- **Offline Email Queuing**: Automatically queues parent email notifications when offline, sending them in the background once internet connectivity is restored.
 
-### 🪪 Digital ID Card
-- Holographic-style ID card with 3D tilt interaction
-- Auto-generated QR code per student (contains PGP pass ID)
-- Displays student photo, name, section, guardian, and dismissal arrangement
-- Downloadable for students to present at the gate
+### 🎓 Student Enrollment & TGP
+- Register students with complete dismissal arrangements (Fetched, Independent, School Bus).
+- Upload student photos for secure visual verification.
+- Issue Temporary Gate Passes (TGP) for visitors or one-time student exits.
 
-### 📋 Exit Logging & Notifications
-- Every verified gate exit is timestamped and recorded
-- Logs include: student name, ID, section, gate used, and time
-- **Automated email notifications** sent to parents/guardians via EmailJS
-- Searchable and clearable log history
+### 📱 Advanced Gate Scanner
+- **Camera Scanning**: Point at a student's QR code for instant, contactless verification.
+- **USB Scanner Integration**: Native support for USB-based barcode or RFID scanners.
+- **Manual Input**: Fallback manual entry using a Student ID or Pass Number.
+- **Multi-Gate Support**: Assign scanners to specific campus gates.
+- **Live Exit Feed**: Real-time monitoring of all granted and denied exits.
+
+### 📋 Automated Parent Notifications
+- Every verified gate exit is timestamped, logged, and securely recorded.
+- **Automated Email Alerts** sent immediately to parents/guardians via EmailJS with exact exit times and gate locations.
 
 ---
 
@@ -41,25 +41,46 @@ Built for **SISC**
 | Layer | Technology |
 |-------|-----------|
 | **Structure** | HTML5 (Single Page Application) |
-| **Styling** | Vanilla CSS — Dark theme, glassmorphism, ambient orb animations |
+| **Styling** | Vanilla CSS — Dark/Light themes, responsive mobile grids |
 | **Logic** | Vanilla JavaScript (ES Modules, MVC Architecture) |
+| **Database** | Google Sheets API (Apps Script) |
+| **Offline Engine** | Service Worker (`sw.js`) & CacheStorage API |
 | **QR Generation** | [qrcodejs](https://github.com/davidshimjs/qrcodejs) |
-| **QR Scanning** | [jsQR](https://github.com/cozmo/jsQR) |
-| **Email** | [EmailJS](https://www.emailjs.com/) |
-| **Fonts** | [Sora](https://fonts.google.com/specimen/Sora) + [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono) |
-| **Storage** | Browser localStorage |
+| **QR Scanning** | [jsQR](https://github.com/cozmo/jsQR) (Localized for offline use) |
+| **Email Service**| [EmailJS](https://www.emailjs.com/) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- [XAMPP](https://www.apachefriends.org/) (or any local web server)
-- A modern web browser (Chrome, Edge, or Firefox)
+- A local web server like [XAMPP](https://www.apachefriends.org/) or VS Code Live Server.
+- A modern web browser (Chrome, Edge, Safari, or Firefox).
 
 ### Installation
 
-1. **Clone the repository** into your XAMPP `htdocs` directory:
+1. **Clone the repository** into your server directory (e.g., `htdocs` for XAMPP):
    ```bash
    cd C:\xampp\htdocs
    git clone https://github.com/YOUR_USERNAME/gate-pass-system.git PGP/gate-pass-system
+   ```
+
+2. **Access the application**:
+   Open your browser and navigate to: `http://localhost/PGP/gate-pass-system/`
+
+3. **Install as App (Optional)**:
+   Click the "Install App" icon in your browser's address bar to install **e-gatepass** as a standalone desktop or mobile application.
+
+---
+
+## 🔧 Configuration
+
+### Google Sheets Database
+To connect your own Google Sheet:
+1. Deploy a Google Apps Script that handles `doGet` and `doPost`.
+2. Update the `scriptUrl` inside `js/services/SheetsService.js`.
+
+### EmailJS Notifications
+To enable automated emails:
+1. Create an account on [EmailJS](https://www.emailjs.com/).
+2. Update the `YOUR_SERVICE_ID` and `YOUR_TEMPLATE_ID` placeholders in `js/controllers/AppController.js`.

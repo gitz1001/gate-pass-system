@@ -195,7 +195,7 @@ export default class AppView {
 
     // Update topbar title
     const title = document.getElementById('topbar-title');
-    if (title) title.textContent = isLogin ? 'Authentication' : (PAGE_TITLES[pageId] || 'PGP System');
+    if (title) title.textContent = isLogin ? 'Authentication' : (PAGE_TITLES[pageId] || 'e-gatepass');
 
     // Toggle visibility of shell elements for login vs app pages
     if (sidebar) sidebar.style.display = isLogin ? 'none' : '';

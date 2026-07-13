@@ -1,7 +1,7 @@
 {
-  "name": "PGP System",
-  "short_name": "PGP Scanner",
-  "description": "Permanent Gate Pass System for SISC",
+  "name": "e-gatepass",
+  "short_name": "e-gatepass",
+  "description": "e-gatepass System",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3616/3616053.png",
+      "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

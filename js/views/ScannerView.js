@@ -6,7 +6,7 @@ export default class ScannerView {
     const todayLogs = (model.exitLogs || []).filter(l => l.timestamp && l.timestamp.startsWith(new Date().toLocaleDateString('en-CA')));
 
     return `
-      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start;" class="scanner-grid">
+      <div class="scanner-grid" style="align-items: start;">
         
         <!-- Scanner Main Area -->
         <div class="card">

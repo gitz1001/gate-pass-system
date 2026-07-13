@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pgp-cache-v5';
+const CACHE_NAME = 'pgp-cache-v6';
 const urlsToCache = [
   './index.html',
   './css/styles.css',
@@ -7,6 +7,7 @@ const urlsToCache = [
   './js/utils.js',
   './js/icons.js',
   './js/lib/jsQR.min.js',
+  './logo.png',
   './js/models/AppModel.js',
   './js/services/SheetsService.js',
   './js/controllers/AppController.js',

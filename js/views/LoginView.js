@@ -9,7 +9,7 @@ export default class LoginView {
             <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; background: rgba(255,255,255,0.1); border-radius: 16px; margin-bottom: 16px;">
               ${Icons['shield-check'](32)}
             </div>
-            <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">SISC PGP SYSTEM</h2>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">e-gatepass</h2>
             <div style="font-size: 13px; opacity: 0.8; margin-top: 5px;">Authorization Required</div>
           </div>
           

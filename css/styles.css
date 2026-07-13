@@ -375,7 +375,7 @@ tr:hover td { background: var(--bg-elevated); }
   .bottom-nav { display: block; }
   .topbar { padding: 0 14px; }
   .stats-row { grid-template-columns: 1fr 1fr !important; }
-  .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
+  .grid-2, .grid-3, .scanner-grid { grid-template-columns: 1fr !important; }
   .form-grid { grid-template-columns: 1fr !important; }
   .modal { width: 96vw !important; max-height: 92vh; }
   table { font-size: 11px; }
