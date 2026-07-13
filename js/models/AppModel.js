@@ -166,6 +166,7 @@ export default class AppModel {
         else if (item.action === 'addTGP') await SheetsService.addTGP(item.data);
         else if (item.action === 'updateTGPStatus') await SheetsService.updateTGPStatus(item.data.id, item.data.status);
         else if (item.action === 'updateStudentStatus') await SheetsService.updateStudentStatus(item.data.id, item.data.status);
+        else if (item.action === 'updateStudent') await SheetsService.updateStudent(item.data);
         else if (item.action === 'removeStudent') await SheetsService.removeStudent(item.data.id);
         console.log('Queued write sent:', item.action);
       } catch (err) {
@@ -229,6 +230,28 @@ export default class AppModel {
         await this.queueWrite('updateStudentStatus', { id, status });
       }
     }
+  }
+
+  async updateStudent(updatedStudent) {
+    const idx = this.students.findIndex(s => s.id === updatedStudent.id);
+    if (idx === -1) return;
+
+    // Merge updates into local cache
+    this.students[idx] = { ...this.students[idx], ...updatedStudent };
+    localStorage.setItem('pgp_students', JSON.stringify(this.students));
+
+    // Write full row to Sheet
+    const sheetData = this.mapStudentToSheet(this.students[idx]);
+    try {
+      await SheetsService.updateStudent(sheetData);
+    } catch (err) {
+      console.error('Failed to update student on Sheet, queuing...', err);
+      await this.queueWrite('updateStudent', sheetData);
+    }
+  }
+
+  async archiveStudent(id) {
+    await this.updateStudentStatus(id, 'archived');
   }
 
   // ════════════════════════════════════════════════════════════

@@ -1,11 +1,12 @@
-const CACHE_NAME = 'pgp-cache-v3';
+const CACHE_NAME = 'pgp-cache-v5';
 const urlsToCache = [
   './index.html',
   './css/styles.css',
   './js/main.js',
-  './js/app.js',
+
   './js/utils.js',
   './js/icons.js',
+  './js/lib/jsQR.min.js',
   './js/models/AppModel.js',
   './js/services/SheetsService.js',
   './js/controllers/AppController.js',
@@ -14,7 +15,6 @@ const urlsToCache = [
 
 const cdnUrls = [
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'
 ];

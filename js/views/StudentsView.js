@@ -4,13 +4,16 @@ import { escapeHTML } from '../utils.js';
 export default class StudentsView {
   static render(model) {
     const students = model.students || [];
+    const grades = ['All', '7th Grade', '8th Grade', '9th Grade', '10th Grade', '11th Grade', '12th Grade'];
+    const activeCount = students.filter(s => s.status === 'active').length;
+    const archivedCount = students.filter(s => s.status === 'archived').length;
 
     return `
       <div class="card">
         <div class="card-head">
           <div>
             <div class="card-title">Student Registry</div>
-            <div class="card-sub">Manage active students and generating passes</div>
+            <div class="card-sub">${activeCount} active · ${archivedCount} archived</div>
           </div>
           ${model.currentUser && model.currentUser.role !== 'guard' ? `
           <div class="flex gap-8">
@@ -24,9 +27,23 @@ export default class StudentsView {
           ` : ''}
         </div>
         
-        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated);">
-          <div class="form-group" style="max-width: 300px;">
+        <!-- Status Tabs -->
+        <div style="display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; gap: 4px;">
+          <button class="pill student-status-tab active" data-status="active" style="border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 600; font-size: 12px; border: 1px solid var(--border); border-bottom: none; background: var(--bg-card); color: var(--primary);">Active Students</button>
+          <button class="pill student-status-tab" data-status="archived" style="border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 500; font-size: 12px; border: 1px solid transparent; color: var(--text3); background: transparent;">Archived</button>
+        </div>
+
+        <!-- Filter Bar: Search + Grade Pills -->
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <div class="form-group" style="max-width: 240px; margin: 0; flex-shrink: 0;">
             <input type="text" id="students-search" class="form-input" placeholder="Search by name or ID...">
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="grade-filters">
+            ${grades.map((g, i) => `
+              <button class="pill grade-pill ${i === 0 ? 'active' : ''}" data-grade="${g}" style="padding: 4px 12px; font-size: 11px; font-weight: ${i === 0 ? '700' : '500'}; border: 1px solid ${i === 0 ? 'var(--primary)' : 'var(--border)'}; background: ${i === 0 ? 'var(--primary-soft)' : 'var(--bg-card)'}; color: ${i === 0 ? 'var(--primary)' : 'var(--text2)'}; border-radius: 20px; cursor: pointer;">
+                ${g === 'All' ? 'All Grades' : g}
+              </button>
+            `).join('')}
           </div>
         </div>
 
@@ -35,14 +52,14 @@ export default class StudentsView {
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Academic</th>
+                <th>Grade Level</th>
                 <th>Guardian</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${this.renderTableRows(students)}
+              ${this.renderTableRows(students.filter(s => s.status === 'active'), model)}
             </tbody>
           </table>
         </div>
@@ -242,22 +259,114 @@ export default class StudentsView {
           </div>
         </div>
       </div>
+
+      <!-- Edit Student Modal -->
+      <div id="modal-edit-student" class="overlay" style="display: none;">
+        <div class="modal modal-lg">
+          <div class="modal-head">
+            <div class="modal-title">${Icons['edit'](16)} Edit Student Details</div>
+            <button class="close-btn" id="btn-close-edit">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body" style="padding: 24px;">
+            <form id="form-edit-student">
+              <input type="hidden" id="edit-id">
+              
+              <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Identity</div>
+              <div class="form-grid mb-12">
+                <div class="form-group">
+                  <label>Full Name</label>
+                  <input type="text" id="edit-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label>Student ID</label>
+                  <input type="text" id="edit-studid" class="form-input" required>
+                </div>
+              </div>
+
+              <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Academic & Exit</div>
+              <div class="form-grid mb-12">
+                <div class="form-group">
+                  <label>Grade Level</label>
+                  <select id="edit-grade" class="form-input" required>
+                    <option value="">Select Grade</option>
+                    <option value="7th Grade">7th Grade</option>
+                    <option value="8th Grade">8th Grade</option>
+                    <option value="9th Grade">9th Grade</option>
+                    <option value="10th Grade">10th Grade</option>
+                    <option value="11th Grade">11th Grade</option>
+                    <option value="12th Grade">12th Grade</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Preferred Gate</label>
+                  <select id="edit-gate" class="form-input">
+                    <option value="">Select Gate...</option>
+                    <option value="Main Gate">Main Gate</option>
+                    <option value="Gate 1">Gate 1</option>
+                    <option value="Gate 2">Gate 2</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grid mb-12">
+                <div class="form-group">
+                  <label>Arrangements</label>
+                  <select id="edit-arrangements" class="form-input">
+                    <option value="">Select Arrangement...</option>
+                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
+                    <option value="Will go home by herself/himself">Will go home by herself/himself</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Vehicle Details</label>
+                  <input type="text" id="edit-vehicle" class="form-input" placeholder="e.g. Red Toyota Vios ABC-123">
+                </div>
+              </div>
+
+              <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Guardian</div>
+              <div class="form-grid mb-12">
+                <div class="form-group">
+                  <label>Guardian Name</label>
+                  <input type="text" id="edit-parent-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label>Guardian Email</label>
+                  <input type="email" id="edit-parent-email" class="form-input" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Mobile Number</label>
+                <input type="text" id="edit-parent-phone" class="form-input" placeholder="09XX XXX XXXX">
+              </div>
+            </form>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" id="btn-cancel-edit">Cancel</button>
+            <button class="btn btn-primary" id="btn-save-edit">${Icons['check-circle'](14)} Save Changes</button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
-  static renderTableRows(students) {
+  static renderTableRows(students, model) {
     if (!students || students.length === 0) {
       return `<tr><td colspan="5" class="empty">No students found</td></tr>`;
     }
 
+    const isGuard = model && model.currentUser && model.currentUser.role === 'guard';
+
     return students.map(s => {
       const isActive = s.status === 'active';
+      const isArchived = s.status === 'archived';
+      const statusBadge = isActive ? 'b-active' : (isArchived ? 'b-pending' : 'b-denied');
+      const statusLabel = isActive ? 'Active PGP' : (isArchived ? 'Archived' : escapeHTML(s.status));
+
       return `
-        <tr>
+        <tr data-grade="${escapeHTML(s.grade || '')}">
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 11px;">
-                ${s.photo && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML(s.name.substring(0, 2).toUpperCase())}
+                ${s.photo && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
               </div>
               <div>
                 <div style="font-weight: 600;">${escapeHTML(s.name)}</div>
@@ -266,24 +375,34 @@ export default class StudentsView {
             </div>
           </td>
           <td>
-            <div style="font-weight: 500;">${escapeHTML(s.grade)}</div>
-            <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.section || '—')}</div>
+            <div style="font-weight: 500;">${escapeHTML(s.grade || '—')}</div>
+            <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.preferredGate || '—')}</div>
           </td>
           <td>
             <div style="font-weight: 500;">${escapeHTML(s.parentName || '—')}</div>
             <div style="font-size: 11px; color: var(--text3);">${escapeHTML(s.parentEmail || '—')}</div>
           </td>
           <td>
-            <span class="badge ${isActive ? 'b-active' : 'b-denied'}">${isActive ? 'Active PGP' : escapeHTML(s.status)}</span>
+            <span class="badge ${statusBadge}">${statusLabel}</span>
           </td>
           <td>
-            <div class="flex gap-8">
+            <div class="flex gap-4">
               <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" title="View ID Card">
-                ${Icons['id-card'](14)}
+                ${Icons['eye'](14)}
               </button>
-              <button class="btn btn-danger btn-sm btn-del-student" data-id="${s.id}" title="Remove">
-                ${Icons['trash'](14)}
+              ${!isGuard ? `
+              <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" title="Edit Student" style="color: var(--primary);">
+                ${Icons['edit'](14)}
               </button>
+              ${isActive ? `
+              <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" title="Archive Student" style="color: var(--orange);">
+                ${Icons['archive'](14)}
+              </button>` : ''}
+              ${isArchived ? `
+              <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" title="Restore Student" style="color: var(--green);">
+                ${Icons['check-circle'](14)}
+              </button>` : ''}
+              ` : ''}
             </div>
           </td>
         </tr>

@@ -46,6 +46,10 @@ export default class SheetsService {
     return this.get('updateStudentStatus', { id, status });
   }
 
+  static async updateStudent(student) {
+    return this.post('updateStudent', student);
+  }
+
   static async removeStudent(id) {
     return this.get('removeStudent', { id });
   }

@@ -1,3 +1,5 @@
+import Icons from '../../icons.js';
+
 export default class StudentsController {
   static bind(controller) {
     controller.currentWizardStep = 1;
@@ -82,21 +84,171 @@ export default class StudentsController {
         }
       });
     }
-    const delBtns = document.querySelectorAll('.btn-del-student');
-    if (controller.model.currentUser && controller.model.currentUser.role !== 'admin') {
-      delBtns.forEach(btn => btn.style.display = 'none');
-    } else {
-      delBtns.forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          if (confirm('Are you sure you want to remove this student?')) {
-            await controller.model.removeStudent(id);
-            controller.view.showToast('Student removed successfully');
-            controller.navigateToPage('students');
+    // ── Archive Student ─────────────────────────────────────
+    document.querySelectorAll('.btn-archive-student').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        if (!student) return;
+        if (confirm(`Archive "${student.name}"? Their PGP will be deactivated.`)) {
+          await controller.model.archiveStudent(id);
+          controller.view.showToast(`${student.name} has been archived`);
+          controller.navigateToPage('students');
+        }
+      });
+    });
+
+    // ── Restore Student ─────────────────────────────────────
+    document.querySelectorAll('.btn-restore-student').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        if (!student) return;
+        if (confirm(`Restore "${student.name}" and reactivate their PGP?`)) {
+          await controller.model.updateStudentStatus(id, 'active');
+          controller.view.showToast(`${student.name} has been restored`);
+          controller.navigateToPage('students');
+        }
+      });
+    });
+
+    // ── Edit Student ────────────────────────────────────────
+    const editModal = document.getElementById('modal-edit-student');
+    const btnCloseEdit = document.getElementById('btn-close-edit');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+
+    if (btnCloseEdit && editModal) btnCloseEdit.addEventListener('click', () => editModal.style.display = 'none');
+    if (btnCancelEdit && editModal) btnCancelEdit.addEventListener('click', () => editModal.style.display = 'none');
+
+    document.querySelectorAll('.btn-edit-student').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        if (!student || !editModal) return;
+
+        // Pre-fill form
+        document.getElementById('edit-id').value = student.id;
+        document.getElementById('edit-name').value = student.name || '';
+        document.getElementById('edit-studid').value = student.studid || '';
+        document.getElementById('edit-grade').value = student.grade || '';
+        document.getElementById('edit-gate').value = student.preferredGate || '';
+        document.getElementById('edit-arrangements').value = student.arrangements || '';
+        document.getElementById('edit-vehicle').value = student.vehicleDetails || '';
+        document.getElementById('edit-parent-name').value = student.parentName || '';
+        document.getElementById('edit-parent-email').value = student.parentEmail || '';
+        document.getElementById('edit-parent-phone').value = student.phone || '';
+
+        editModal.style.display = 'flex';
+      });
+    });
+
+    const btnSaveEdit = document.getElementById('btn-save-edit');
+    if (btnSaveEdit) {
+      btnSaveEdit.addEventListener('click', async () => {
+        const id = document.getElementById('edit-id').value;
+        const name = document.getElementById('edit-name').value.trim();
+        const studid = document.getElementById('edit-studid').value.trim();
+        const grade = document.getElementById('edit-grade').value;
+
+        if (!name || !studid || !grade) {
+          controller.view.showToast('Name, Student ID, and Grade are required.', 'error');
+          return;
+        }
+
+        // Rebuild full name parts from the single name field
+        const nameParts = name.split(',').map(p => p.trim());
+        const lastName = nameParts[0] || '';
+        const firstMid = (nameParts[1] || '').split(' ');
+        const firstName = firstMid[0] || '';
+        const midName = firstMid.slice(1).join(' ') || '';
+
+        const updatedStudent = {
+          id,
+          name,
+          lastName,
+          firstName,
+          midName,
+          studid,
+          grade,
+          preferredGate: document.getElementById('edit-gate').value,
+          arrangements: document.getElementById('edit-arrangements').value,
+          vehicleDetails: document.getElementById('edit-vehicle').value,
+          parentName: document.getElementById('edit-parent-name').value.trim(),
+          parentEmail: document.getElementById('edit-parent-email').value.trim(),
+          phone: document.getElementById('edit-parent-phone').value.trim()
+        };
+
+        btnSaveEdit.innerHTML = 'Saving...';
+        btnSaveEdit.disabled = true;
+
+        await controller.model.updateStudent(updatedStudent);
+        controller.view.showToast('Student details updated successfully');
+        editModal.style.display = 'none';
+        btnSaveEdit.innerHTML = `${Icons['check-circle'](14)} Save Changes`;
+        btnSaveEdit.disabled = false;
+        controller.navigateToPage('students');
+      });
+    }
+
+    // ── Grade Filter Pills ──────────────────────────────────
+    document.querySelectorAll('.grade-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        // Update active pill
+        document.querySelectorAll('.grade-pill').forEach(p => {
+          p.classList.remove('active');
+          p.style.fontWeight = '500';
+          p.style.border = '1px solid var(--border)';
+          p.style.background = 'var(--bg-card)';
+          p.style.color = 'var(--text2)';
+        });
+        pill.classList.add('active');
+        pill.style.fontWeight = '700';
+        pill.style.border = '1px solid var(--primary)';
+        pill.style.background = 'var(--primary-soft)';
+        pill.style.color = 'var(--primary)';
+
+        const grade = pill.dataset.grade;
+        document.querySelectorAll('#students-table tbody tr').forEach(row => {
+          if (row.querySelector('.empty')) return;
+          if (grade === 'All') {
+            row.style.display = '';
+          } else {
+            row.style.display = row.dataset.grade === grade ? '' : 'none';
           }
         });
       });
-    }
+    });
+
+    // ── Status Tabs (Active / Archived) ─────────────────────
+    document.querySelectorAll('.student-status-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.student-status-tab').forEach(t => {
+          t.classList.remove('active');
+          t.style.background = 'transparent';
+          t.style.color = 'var(--text3)';
+          t.style.border = '1px solid transparent';
+          t.style.fontWeight = '500';
+        });
+        tab.classList.add('active');
+        tab.style.background = 'var(--bg-card)';
+        tab.style.color = 'var(--primary)';
+        tab.style.border = '1px solid var(--border)';
+        tab.style.borderBottom = 'none';
+        tab.style.fontWeight = '600';
+
+        const status = tab.dataset.status;
+        const filtered = controller.model.students.filter(s => s.status === status);
+        const tbody = document.querySelector('#students-table tbody');
+        if (tbody) {
+          import('../views/StudentsView.js').then(module => {
+            tbody.innerHTML = module.default.renderTableRows(filtered, controller.model);
+            // Re-bind action buttons for the newly rendered rows
+            StudentsController.bind(controller);
+          });
+        }
+      });
+    });
+
     StudentsController.bindIdCard(controller);
     StudentsController.bindCSVImport(controller);
     const searchIn = document.getElementById('students-search');
