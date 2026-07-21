@@ -72,26 +72,25 @@ export default class AppModel {
 
   // ── Field Mapping: Sheet → Frontend ───────────────────────
   mapStudentFromSheet(s) {
+    const fullSection = String(s.GradeAndSection || '');
     return {
       id: String(s.PassID || ''),
       pgp: String(s.PassID || ''),
       studid: String(s.StudentID || ''),
-      lastName: s.LastName || '',
-      firstName: s.FirstName || '',
-      midName: s.MidName || '',
-      name: this.buildFullName(s.LastName, s.FirstName, s.MidName),
-      grade: s.GradeLevel || '',
-      section: '',
-      fullSection: s.GradeLevel || '',
-      schoolYear: s.SchoolYear || '',
+      name: s.CompleteName || '',
+      grade: this.extractGrade(fullSection),
+      section: this.extractSection(fullSection),
+      fullSection,
+      schoolYear: String(s.SchoolYear || ''),
       arrangements: s.Arrangements || '',
       preferredGate: s.PreferredGate || '',
       vehicleDetails: s.VehicleDetails || '',
       parentName: s.ParentName || '',
       parentEmail: s.ParentEmail || '',
       phone: String(s.ParentMobile || ''),
-      photo: s.photo || '',
-      status: s.status || 'active'
+      address: s.Address || '',
+      photo: s.Photo || '',
+      status: s.Status || 'active'
     };
   }
 
@@ -100,19 +99,18 @@ export default class AppModel {
     return {
       PassID: s.pgp || s.id || '',
       StudentID: s.studid || '',
-      LastName: s.lastName || '',
-      FirstName: s.firstName || '',
-      MidName: s.midName || '',
-      GradeLevel: s.grade || s.fullSection || '',
+      CompleteName: s.name || '',
+      GradeAndSection: s.fullSection || (s.grade && s.section ? `${s.grade} - ${s.section}` : s.grade || ''),
       SchoolYear: s.schoolYear || '',
       Arrangements: s.arrangements || '',
-      PreferredGate: s.preferredGate || '',
-      VehicleDetails: s.vehicleDetails || '',
       ParentName: s.parentName || '',
       ParentEmail: s.parentEmail || '',
       ParentMobile: s.phone || '',
-      photo: s.photo || '',
-      status: s.status || 'active'
+      PreferredGate: s.preferredGate || '',
+      VehicleDetails: s.vehicleDetails || '',
+      Address: s.address || '',
+      Photo: s.photo || '',
+      Status: s.status || 'active'
     };
   }
 

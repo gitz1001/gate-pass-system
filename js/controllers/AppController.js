@@ -119,9 +119,16 @@ export default class AppController {
         return;
       }
 
-      // Re-render current page to show new data
-      this.view.showPage(this.view.currentPage, this.model);
-      this.bindPageEvents(this.view.currentPage);
+      // Guard: Do not re-render if user is interacting with a modal or an input field
+      const hasOpenModal = Array.from(document.querySelectorAll('.overlay')).some(el => el.style.display !== 'none');
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
+
+      if (!hasOpenModal && !isInputFocused) {
+        // Re-render current page to show new data
+        this.view.showPage(this.view.currentPage, this.model);
+        this.bindPageEvents(this.view.currentPage);
+      }
     } else if (!success) {
       this.view.showToast('Sync failed. Using offline cache.', 'error');
     }
@@ -337,12 +344,15 @@ export default class AppController {
       name,
       studid,
       grade,
+      section: '',
+      fullSection: grade,
       preferredGate: gate,
       arrangements,
       vehicleDetails: vehicle,
       parentName,
       parentEmail,
       phone: parentPhone,
+      address: '',
       photo: this.tempPhotoData || '',
       pgp: 'PGP-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
       status: 'active'
@@ -363,24 +373,47 @@ export default class AppController {
     
     if (!video) return;
 
+    // Guard: mediaDevices API requires HTTPS or localhost
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.view.showToast("Camera API not available. Use HTTPS or localhost.", "error");
+      return;
+    }
+
+    const onSuccess = (stream) => {
+      this.videoStream = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true);
+      video.style.display = "block";
+      if (startUi) startUi.style.display = "none";
+      if (overlay) overlay.style.display = "block";
+      video.play();
+      this.scannerActive = true;
+      requestAnimationFrame(() => this.tickCamera());
+    };
+
+    const onFinalError = (err) => {
+      console.error("Camera error:", err.name, err.message);
+      let message;
+      if (err.name === 'NotAllowedError') {
+        message = "Camera permission denied. Please allow camera access in your browser and try again.";
+      } else if (err.name === 'NotFoundError') {
+        message = "No camera found on this device.";
+      } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+        message = "Camera is in use by another application. Close it and try again.";
+      } else {
+        message = "Camera error: " + (err.message || 'Unknown error');
+      }
+      this.view.showToast(message, "error");
+    };
+
+    // Try rear camera first (for mobile), fall back to any camera (for desktop)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => {
-        this.videoStream = stream;
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        video.style.display = "block";
-        startUi.style.display = "none";
-        overlay.style.display = "block";
-        video.play();
-        this.scannerActive = true;
-        requestAnimationFrame(() => this.tickCamera());
-      })
-      .catch(err => {
-        console.error("Camera access denied", err);
-        const message = err.name === 'NotAllowedError' && err.message.includes('dismissed')
-          ? "Camera permission was dismissed. Please try again and 'Allow' access."
-          : "Camera access denied or unavailable. Please check your settings.";
-        this.view.showToast(message, "error");
+      .then(onSuccess)
+      .catch(firstErr => {
+        console.warn("Rear camera unavailable, trying any camera...", firstErr.name);
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(onSuccess)
+          .catch(onFinalError);
       });
   }
 

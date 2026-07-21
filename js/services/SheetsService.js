@@ -9,9 +9,9 @@ export default class SheetsService {
 
   // ── Generic GET request ───────────────────────────────────
   static async get(action, params = {}) {
-    const query = new URLSearchParams({ action, ...params }).toString();
+    const query = new URLSearchParams({ action, ...params, _t: Date.now() }).toString();
     const url = `${API_URL}?${query}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'API error');
     return json.data;

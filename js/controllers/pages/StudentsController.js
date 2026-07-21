@@ -1,4 +1,5 @@
 import Icons from '../../icons.js';
+import { escapeHTML } from '../../utils.js';
 
 export default class StudentsController {
   static bind(controller) {
@@ -72,15 +73,17 @@ export default class StudentsController {
     }
     const photoInput = document.getElementById('w-photo-file');
     if (photoInput) {
-      photoInput.addEventListener('change', (e) => {
+      photoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            document.getElementById('w-photo-preview').innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
-            controller.tempPhotoData = ev.target.result;
-          };
-          reader.readAsDataURL(file);
+          try {
+            const compressedDataUrl = await compressImage(file, 250, 250, 0.7);
+            document.getElementById('w-photo-preview').innerHTML = `<img src="${compressedDataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            controller.tempPhotoData = compressedDataUrl;
+          } catch (err) {
+            console.error('Failed to compress image:', err);
+            controller.view.showToast('Failed to process image.', 'error');
+          }
         }
       });
     }
@@ -138,9 +141,33 @@ export default class StudentsController {
         document.getElementById('edit-parent-email').value = student.parentEmail || '';
         document.getElementById('edit-parent-phone').value = student.phone || '';
 
+        // Reset photo upload state
+        controller.editPhotoData = null;
+        document.getElementById('edit-photo-file').value = '';
+        document.getElementById('edit-photo-preview').innerHTML = student.photo && typeof student.photo === 'string' && student.photo.startsWith('data:image') 
+          ? `<img src="${escapeHTML(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
+          : Icons['camera'](20);
+
         editModal.style.display = 'flex';
       });
     });
+
+    const editPhotoInput = document.getElementById('edit-photo-file');
+    if (editPhotoInput) {
+      editPhotoInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          try {
+            const compressedDataUrl = await compressImage(file, 250, 250, 0.7);
+            document.getElementById('edit-photo-preview').innerHTML = `<img src="${compressedDataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            controller.editPhotoData = compressedDataUrl;
+          } catch (err) {
+            console.error('Failed to compress image:', err);
+            controller.view.showToast('Failed to process image.', 'error');
+          }
+        }
+      });
+    }
 
     const btnSaveEdit = document.getElementById('btn-save-edit');
     if (btnSaveEdit) {
@@ -155,28 +182,25 @@ export default class StudentsController {
           return;
         }
 
-        // Rebuild full name parts from the single name field
-        const nameParts = name.split(',').map(p => p.trim());
-        const lastName = nameParts[0] || '';
-        const firstMid = (nameParts[1] || '').split(' ');
-        const firstName = firstMid[0] || '';
-        const midName = firstMid.slice(1).join(' ') || '';
-
         const updatedStudent = {
           id,
           name,
-          lastName,
-          firstName,
-          midName,
           studid,
           grade,
+          section: '',
+          fullSection: grade,
           preferredGate: document.getElementById('edit-gate').value,
           arrangements: document.getElementById('edit-arrangements').value,
           vehicleDetails: document.getElementById('edit-vehicle').value,
           parentName: document.getElementById('edit-parent-name').value.trim(),
           parentEmail: document.getElementById('edit-parent-email').value.trim(),
-          phone: document.getElementById('edit-parent-phone').value.trim()
+          phone: document.getElementById('edit-parent-phone').value.trim(),
+          address: ''
         };
+
+        if (controller.editPhotoData) {
+          updatedStudent.photo = controller.editPhotoData;
+        }
 
         btnSaveEdit.innerHTML = 'Saving...';
         btnSaveEdit.disabled = true;
@@ -274,28 +298,37 @@ export default class StudentsController {
         if (!student) return;
         const target = document.getElementById('idcard-render-target');
         const photoHtml = student.photo
-          ? `<img src="${student.photo}" style="width:100%;height:100%;object-fit:cover;">`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:#422467;">${student.name.substring(0,2).toUpperCase()}</div>`;
+          ? `<img src="${escapeHTML(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:#422467;">${escapeHTML(student.name.substring(0,2).toUpperCase())}</div>`;
         target.innerHTML = `
           <div id="idcard-capture" style="width:300px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">
-            <div style="background:#422467;padding:15px;text-align:center;color:#fff;">
-              <div style="font-size:14px;font-weight:800;letter-spacing:1px;">SOUTHVILLE INTERNATIONAL</div>
-              <div style="font-size:10px;color:#00c9b1;font-weight:700;margin-top:2px;">PERMANENT GATE PASS</div>
-            </div>
-            <div style="padding:20px;text-align:center;">
-              <div style="width:100px;height:100px;margin:0 auto 15px;border-radius:10px;border:3px solid #00c9b1;overflow:hidden;background:#f0ebf7;">${photoHtml}</div>
-              <div style="font-size:20px;font-weight:800;color:#1f2937;margin-bottom:4px;">${student.name}</div>
-              <div style="font-size:13px;color:#6b7280;font-weight:600;margin-bottom:15px;">${student.grade} ${student.section ? '- '+student.section : ''}</div>
-              <div style="background:#f5f4f8;border-radius:8px;padding:10px;margin-bottom:20px;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Scan to Verify</div>
-                <div id="idcard-qrcode"></div>
-                <div style="font-size:11px;font-weight:700;font-family:monospace;color:#422467;margin-top:5px;letter-spacing:1px;">${student.pgp}</div>
+            <div style="background:#422467;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#fff;">
+              <div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="SISC_logo.png" style="width:100%;height:100%;object-fit:contain;" alt="SISC" onerror="this.style.display='none'"></div>
+              <div>
+                <div style="font-size:12px;font-weight:800;letter-spacing:0.5px;line-height:1.2;">SOUTHVILLE INTERNATIONAL</div>
+                <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.3;">1281 Tropical Ave Cor. Luxembourg St.<br>BF International, Las Piñas City</div>
               </div>
             </div>
-            <div style="background:#00c9b1;padding:10px;text-align:center;color:#003d35;font-size:10px;font-weight:700;">SY 2025-2026 · VALID UNTIL JUNE 2026</div>
+            <div style="text-align:center;padding:10px 0 8px;"><div style="font-size:10px;color:#00c9b1;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Permanent Gate Pass</div></div>
+            <div style="display:flex;gap:14px;align-items:center;padding:0 20px 14px;">
+              <div style="width:80px;height:80px;border-radius:10px;border:3px solid #00c9b1;overflow:hidden;background:#f0ebf7;flex-shrink:0;">${photoHtml}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:18px;font-weight:800;color:#1f2937;line-height:1.15;margin-bottom:4px;">${escapeHTML(student.name)}</div>
+                <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:2px;">ID: <span style="color:#422467;font-weight:700;">${escapeHTML(student.studid || student.id)}</span></div>
+                <div style="font-size:11px;color:#6b7280;font-weight:600;">${escapeHTML(student.grade)}${student.section ? ' - ' + escapeHTML(student.section) : ''}</div>
+              </div>
+            </div>
+            <div style="padding:0 20px;margin-bottom:8px;"><div style="background:#FDE047;border-radius:6px;padding:8px 10px;text-align:center;border:1px solid #facc15;"><div style="font-size:11px;font-weight:700;color:#1f2937;line-height:1.3;">${escapeHTML(student.arrangements || 'No arrangement specified')}</div></div></div>
+            <div style="padding:0 20px;margin-bottom:16px;"><div style="background:#f3f4f6;border-radius:6px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:9px;text-transform:uppercase;color:#6b7280;font-weight:700;letter-spacing:0.5px;">Exit Gate</div><div style="font-size:11px;font-weight:700;color:#422467;">${escapeHTML(student.preferredGate || 'Any authorized gate')}</div></div></div>
+            <div style="background:#f5f4f8;border-radius:8px;padding:14px;margin:0 20px 16px;display:flex;flex-direction:column;align-items:center;">
+              <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:8px;letter-spacing:1px;">Scan to Verify</div>
+              <div id="idcard-qrcode"></div>
+              <div style="font-size:12px;font-weight:700;font-family:monospace;color:#422467;margin-top:8px;letter-spacing:1.5px;">${escapeHTML(student.pgp)}</div>
+            </div>
+            <div style="background:#00c9b1;padding:10px;text-align:center;color:#003d35;font-size:10px;font-weight:700;">A.Y. 2026-2027 · VALID UNTIL JULY 2027</div>
           </div>`;
         setTimeout(() => {
-          new QRCode(document.getElementById('idcard-qrcode'), { text: student.pgp || student.studid || student.id || 'N/A', width: 90, height: 90, colorDark: "#1f2937", colorLight: "#f5f4f8" });
+          new QRCode(document.getElementById('idcard-qrcode'), { text: student.pgp || student.studid || student.id || 'N/A', width: 120, height: 120, colorDark: "#1f2937", colorLight: "#f5f4f8" });
         }, 50);
         modalId.style.display = 'flex';
       });
@@ -312,7 +345,11 @@ export default class StudentsController {
           a.href = canvas.toDataURL("image/png");
           a.download = `PGP_Card_${Date.now()}.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          btnDownload.innerHTML = 'Download Image';
+          btnDownload.innerHTML = `${Icons['download'](14)} Download Image`;
+          btnDownload.disabled = false;
+        }).catch(err => {
+          console.error('Failed to generate ID card image:', err);
+          btnDownload.innerHTML = `${Icons['download'](14)} Download Image`;
           btnDownload.disabled = false;
         });
       });

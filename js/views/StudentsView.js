@@ -135,9 +135,17 @@ export default class StudentsView {
                     <label>Preferred Gate</label>
                     <select id="w-gate" class="form-input">
                       <option value="">Select Gate...</option>
-                      <option value="Main Gate">Main Gate</option>
-                      <option value="Gate 1">Gate 1</option>
-                      <option value="Gate 2">Gate 2</option>
+                      <option value="Main Gate (Gate 2)">Main Gate (Gate 2)</option>
+                      <option value="Gate 1 (near Lux Hall)">Gate 1 (near Lux Hall)</option>
+                      <option value="College Gate (fronting McDonald's)">College Gate (fronting McDonald's)</option>
+                      <option value="Any authorized gate during dismissal">Any authorized gate during dismissal</option>
+                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall)">Main Gate (Gate 2), Gate 1 (near Lux Hall)</option>
+                      <option value="Main Gate (Gate 2), College Gate (fronting McDonald's)">Main Gate (Gate 2), College Gate (fronting McDonald's)</option>
+                      <option value="College Gate (fronting McDonald's), Any authorized gate during dismissal">College Gate, Any authorized gate</option>
+                      <option value="Main Gate (Gate 2), Any authorized gate during dismissal">Main Gate (Gate 2), Any authorized gate</option>
+                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), Any authorized gate during dismissal">Main Gate, Gate 1, Any authorized gate</option>
+                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), College Gate (fronting McDonald's), Any authorized gate during dismissal">All Gates</option>
+                      <option value="Main Gate (Gate 1 or 2)">Main Gate (Gate 1 or 2)</option>
                     </select>
                   </div>
                 </div>
@@ -145,8 +153,11 @@ export default class StudentsView {
                   <label>Arrangements</label>
                   <select id="w-arrangements" class="form-input">
                     <option value="">Select Arrangement...</option>
-                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
                     <option value="Will go home by herself/himself">Will go home by herself/himself</option>
+                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
+                    <option value="Will ride the school bus">Will ride the school bus</option>
+                    <option value="Will drive own car (Grades 11-12 only)">Will drive own car (Grades 11-12 only)</option>
+                    <option value="Will ride the Academy Car">Will ride the Academy Car</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -282,6 +293,15 @@ export default class StudentsView {
                   <input type="text" id="edit-studid" class="form-input" required>
                 </div>
               </div>
+              <div class="form-group mb-12">
+                <label>Update Photo</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <div id="edit-photo-preview" style="width: 50px; height: 50px; border-radius: 8px; background: var(--bg-elevated); border: 1px dashed var(--border2); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    ${Icons['camera'](20)}
+                  </div>
+                  <input type="file" id="edit-photo-file" accept="image/*" class="form-input" style="flex: 1; padding: 6px;">
+                </div>
+              </div>
 
               <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Academic & Exit</div>
               <div class="form-grid mb-12">
@@ -301,9 +321,17 @@ export default class StudentsView {
                   <label>Preferred Gate</label>
                   <select id="edit-gate" class="form-input">
                     <option value="">Select Gate...</option>
-                    <option value="Main Gate">Main Gate</option>
-                    <option value="Gate 1">Gate 1</option>
-                    <option value="Gate 2">Gate 2</option>
+                    <option value="Main Gate (Gate 2)">Main Gate (Gate 2)</option>
+                    <option value="Gate 1 (near Lux Hall)">Gate 1 (near Lux Hall)</option>
+                    <option value="College Gate (fronting McDonald's)">College Gate (fronting McDonald's)</option>
+                    <option value="Any authorized gate during dismissal">Any authorized gate during dismissal</option>
+                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall)">Main Gate (Gate 2), Gate 1 (near Lux Hall)</option>
+                    <option value="Main Gate (Gate 2), College Gate (fronting McDonald's)">Main Gate (Gate 2), College Gate (fronting McDonald's)</option>
+                    <option value="College Gate (fronting McDonald's), Any authorized gate during dismissal">College Gate, Any authorized gate</option>
+                    <option value="Main Gate (Gate 2), Any authorized gate during dismissal">Main Gate (Gate 2), Any authorized gate</option>
+                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), Any authorized gate during dismissal">Main Gate, Gate 1, Any authorized gate</option>
+                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), College Gate (fronting McDonald's), Any authorized gate during dismissal">All Gates</option>
+                    <option value="Main Gate (Gate 1 or 2)">Main Gate (Gate 1 or 2)</option>
                   </select>
                 </div>
               </div>
@@ -312,8 +340,11 @@ export default class StudentsView {
                   <label>Arrangements</label>
                   <select id="edit-arrangements" class="form-input">
                     <option value="">Select Arrangement...</option>
-                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
                     <option value="Will go home by herself/himself">Will go home by herself/himself</option>
+                    <option value="Will ride with parents/authorized fetchers">Will ride with parents/authorized fetchers</option>
+                    <option value="Will ride the school bus">Will ride the school bus</option>
+                    <option value="Will drive own car (Grades 11-12 only)">Will drive own car (Grades 11-12 only)</option>
+                    <option value="Will ride the Academy Car">Will ride the Academy Car</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -366,7 +397,7 @@ export default class StudentsView {
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 11px;">
-                ${s.photo && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
+                ${typeof s.photo === 'string' && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
               </div>
               <div>
                 <div style="font-weight: 600;">${escapeHTML(s.name)}</div>
