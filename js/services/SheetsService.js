@@ -17,17 +17,24 @@ export default class SheetsService {
     return json.data;
   }
 
-  // ── Generic POST request ──────────────────────────────────
   static async post(action, body = {}) {
     const url = `${API_URL}?action=${action}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(body)
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'API error');
-    return json.data;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'API error');
+      return json.data;
+    } catch (err) {
+      console.error('Sheets API POST Error:', err);
+      if (typeof window !== 'undefined') {
+        alert("Google Sheets Update Failed: " + err.message + "\nCheck if the student's PassID exactly matches the sheet, or if the photo is still too large.");
+      }
+      throw err;
+    }
   }
 
   // ── Bulk fetch (single network call for ALL data) ─────────
