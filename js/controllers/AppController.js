@@ -8,6 +8,7 @@ import SettingsController from './pages/SettingsController.js';
 import TGPController from './pages/TGPController.js';
 import StudentsController from './pages/StudentsController.js';
 import ScannerController from './pages/ScannerController.js';
+import ReportsController from './pages/ReportsController.js';
 
 export default class AppController {
   constructor(model, view) {
@@ -295,6 +296,7 @@ export default class AppController {
     if (pageId === 'pgp') PGPController.bind(this);
     if (pageId === 'settings') SettingsController.bind(this);
     if (pageId === 'tgp') TGPController.bind(this);
+    if (pageId === 'reports') ReportsController.bind(this);
   }
 
   // ── Wizard Helpers (used by StudentsController) ────────

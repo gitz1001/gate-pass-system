@@ -281,6 +281,7 @@ tr:hover td { background: var(--bg-elevated); }
 .empty-icon svg { width: 48px; height: 48px; }
 .empty-title { font-size: 13.5px; font-weight: 600; }
 .empty-sub { font-size: 11.5px; color: var(--text3); margin-top: 4px; }
+.print-only { display: none; }
 
 /* ── TOAST ──────────────────────────────────────────────────── */
 .toast {
@@ -568,4 +569,52 @@ tr:hover td { background: var(--bg-elevated); }
   .dash-summary-item { font-size: 11px; padding: 8px; min-width: 33%; }
   .dash-actions-grid { grid-template-columns: 1fr 1fr; }
   .dash-health-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+
+/* ════ PRINT STYLES ════ */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Hide UI Elements */
+  .sidebar, .topbar, .bottom-nav, .no-print, .toast, .overlay {
+    display: none !important;
+  }
+
+  /* Expand Main Content */
+  .main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Show Print Only Elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Force background colors on charts/progress bars */
+  .print-bg-exact {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure cards break cleanly */
+  .card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    margin-bottom: 20px !important;
+  }
+  
+  .data-table th, .data-table td {
+    border-bottom: 1px solid #ddd !important;
+  }
 }
