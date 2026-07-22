@@ -870,7 +870,10 @@ export default class AppController {
     faceBiometrics.enrollFace(student.id, detection.descriptor);
 
     // ── Also save to Google Sheets (FaceDescriptor column) ──
-    const descriptorJson = JSON.stringify(faceBiometrics.descriptorToArray(detection.descriptor));
+    // We round to 4 decimal places to drastically reduce the payload size (prevents "Failed to fetch" network errors)
+    const descriptorArray = faceBiometrics.descriptorToArray(detection.descriptor).map(n => Number(n.toFixed(4)));
+    const descriptorJson = JSON.stringify(descriptorArray);
+    
     student.faceDescriptor = descriptorJson;
     try {
       await this.model.updateStudent({ id: student.id, faceDescriptor: descriptorJson });
