@@ -751,6 +751,9 @@ export default class AppController {
             // Stage 3: Eyes re-opened after blink = liveness confirmed!
             if (this.blinkTransition && !isBlinking) {
               this.blinkDetected = true;
+              // STOP the tick loop immediately to prevent re-triggering
+              this.faceScanActive = false;
+
               if (livenessOverlay) {
                 livenessOverlay.textContent = '✅ Liveness verified!';
                 livenessOverlay.style.background = 'rgba(22,163,74,0.9)';
@@ -760,10 +763,10 @@ export default class AppController {
                 statusOverlay.style.background = 'rgba(22,163,74,0.85)';
               }
 
-              // Small delay then enroll
+              // Small delay then enroll (tick loop is stopped)
               setTimeout(() => {
                 this.enrollFaceFromDetection(detection);
-              }, 500);
+              }, 800);
               return;
             }
 
@@ -832,7 +835,11 @@ export default class AppController {
   }
 
   async enrollFaceFromDetection(detection) {
+    // Ensure the tick loop is fully stopped
+    this.faceScanActive = false;
+
     const statusOverlay = document.getElementById('face-status-overlay');
+    const livenessOverlay = document.getElementById('face-liveness-overlay');
 
     // Prompt user to select which student to enroll
     const studentId = prompt(
@@ -872,15 +879,21 @@ export default class AppController {
       console.warn('[FaceBiometrics] Failed to sync descriptor to Sheets (will retry on next sync):', err);
     }
 
-    if (statusOverlay) {
-      statusOverlay.textContent = `✓ Face enrolled for: ${student.name}`;
-      statusOverlay.style.background = 'rgba(22,163,74,0.85)';
+    // Update UI (elements may still exist since we stopped the tick loop, not the camera stream)
+    const statusEl = document.getElementById('face-status-overlay');
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.textContent = `✓ Face enrolled for: ${student.name}`;
+      statusEl.style.background = 'rgba(22,163,74,0.85)';
+    }
+    if (livenessOverlay) {
+      livenessOverlay.style.display = 'none';
     }
 
     this.view.showToast(`Face enrolled for ${student.name}!`);
     this.updateFaceEnrolledCount();
 
-    // Stop after 2 seconds
+    // Stop camera stream after 2 seconds
     setTimeout(() => this.stopFaceCamera(), 2000);
   }
 
