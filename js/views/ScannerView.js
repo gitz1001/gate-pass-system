@@ -38,6 +38,9 @@ export default class ScannerView {
             <button class="scan-tab active" data-target="camera" style="padding: 12px 16px; background: none; border: none; font-weight: 600; color: var(--primary); border-bottom: 2px solid var(--primary); display: flex; align-items: center; gap: 6px;">
               ${Icons['camera'](16)} Camera
             </button>
+            <button class="scan-tab" data-target="facescan" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px;">
+              ${Icons['face-scan'](16)} Face Scan
+            </button>
           </div>
 
           <!-- Panels -->
@@ -87,6 +90,40 @@ export default class ScannerView {
                   <div style="color: rgba(255,255,255,0.5); margin-bottom: 16px;">${Icons['camera'](48)}</div>
                   <button class="btn btn-accent" id="btn-start-camera" style="padding: 10px 20px;">Start Camera</button>
                   <p style="color: #aaa; font-size: 11px; margin-top: 12px;">Requires camera permission</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Face Scan Panel -->
+            <div id="panel-facescan" class="scan-panel" style="display: none;">
+              <div style="background: #000; border-radius: var(--radius); overflow: hidden; position: relative; min-height: 280px; display: flex; align-items: center; justify-content: center;">
+                
+                <video id="face-video" style="width: 100%; height: auto; display: none; transform: scaleX(-1);" playsinline></video>
+                <canvas id="face-overlay-canvas" style="display: none; position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none;"></canvas>
+                
+                <!-- Face Scan Status Overlay -->
+                <div id="face-status-overlay" style="display: none; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 12px; font-weight: 700; z-index: 2; white-space: nowrap;"></div>
+
+                <!-- Liveness Prompt Overlay -->
+                <div id="face-liveness-overlay" style="display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(66,36,103,0.9); color: #fff; padding: 10px 24px; border-radius: 10px; font-size: 13px; font-weight: 700; z-index: 2; text-align: center; white-space: nowrap;">
+                  👁️ Please BLINK to verify liveness
+                </div>
+
+                <!-- Start UI -->
+                <div id="face-start-ui" style="text-align: center; color: #fff; padding: 24px;">
+                  <div style="color: rgba(255,255,255,0.5); margin-bottom: 12px;">${Icons['face-scan'](48)}</div>
+                  <h3 style="color: #fff; font-size: 15px; margin-bottom: 6px;">Face Recognition</h3>
+                  <p style="color: #aaa; font-size: 12px; max-width: 300px; margin: 0 auto 20px;">Use facial biometrics to verify student identity. Enroll a face first, then scan to match.</p>
+                  <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn-accent" id="btn-start-face-scan" style="padding: 10px 20px;">Start Face Scan</button>
+                    ${model.currentUser && model.currentUser.role === 'admin' ? `
+                      <button class="btn btn-ghost" id="btn-enroll-face" style="padding: 10px 20px; color: #fff; border-color: rgba(255,255,255,0.3);">${Icons['plus'](14)} Enroll Face</button>
+                    ` : ''}
+                  </div>
+                  <div id="face-enrolled-count" style="color: #aaa; font-size: 11px; margin-top: 12px;"></div>
+                  <div style="color: #666; font-size: 10px; margin-top: 8px; max-width: 280px; margin-left: auto; margin-right: auto;">
+                    ${Icons['shield-check'](12)} Biometric data is processed locally and protected under RA 10173.
+                  </div>
                 </div>
               </div>
             </div>

@@ -90,7 +90,8 @@ export default class AppModel {
       phone: String(s.ParentMobile || ''),
       address: s.Address || '',
       photo: s.Photo || '',
-      status: s.Status || 'active'
+      status: s.Status || 'active',
+      faceDescriptor: s.FaceDescriptor || ''
     };
   }
 
@@ -110,7 +111,8 @@ export default class AppModel {
       VehicleDetails: s.vehicleDetails || '',
       Address: s.address || '',
       Photo: s.photo || '',
-      Status: s.status || 'active'
+      Status: s.status || 'active',
+      FaceDescriptor: s.faceDescriptor || ''
     };
   }
 

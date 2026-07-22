@@ -28,10 +28,19 @@ export default class ScannerController {
         if (target === 'usb') {
           document.getElementById('scan-usb-input').focus();
           controller.stopCamera();
+          controller.stopFaceCamera();
         } else if (target === 'camera') {
           // Camera started manually via button now
+          controller.stopFaceCamera();
+        } else if (target === 'facescan') {
+          controller.stopCamera();
+          // Update enrolled count display
+          if (typeof controller.updateFaceEnrolledCount === 'function') {
+            controller.updateFaceEnrolledCount();
+          }
         } else {
           controller.stopCamera();
+          controller.stopFaceCamera();
         }
       });
     });
@@ -69,6 +78,21 @@ export default class ScannerController {
     if (camStartBtn) {
       camStartBtn.addEventListener('click', () => {
         controller.startCamera();
+      });
+    }
+
+    // ── Face Scan Buttons (Additive — does not affect QR/USB/Manual) ──
+    const faceStartBtn = document.getElementById('btn-start-face-scan');
+    if (faceStartBtn) {
+      faceStartBtn.addEventListener('click', () => {
+        controller.startFaceCamera('scan');
+      });
+    }
+
+    const faceEnrollBtn = document.getElementById('btn-enroll-face');
+    if (faceEnrollBtn) {
+      faceEnrollBtn.addEventListener('click', () => {
+        controller.startFaceCamera('enroll');
       });
     }
   }
