@@ -71,6 +71,10 @@ export function compressImage(file, maxWidth = 250, maxHeight = 250, quality = 0
           dataUrl = failsafeCanvas.toDataURL(format, 0.5);
         }
         
+        console.log('--- COMPRESSION COMPLETE ---');
+        console.log('Final image format:', format);
+        console.log('Final base64 length:', dataUrl.length);
+        
         resolve(dataUrl);
       };
       img.onerror = error => reject(error);
