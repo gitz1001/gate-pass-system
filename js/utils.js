@@ -37,12 +37,38 @@ export function compressImage(file, maxWidth = 250, maxHeight = 250, quality = 0
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         
-        let dataUrl = canvas.toDataURL('image/webp', quality);
+        let format = 'image/webp';
+        let dataUrl = canvas.toDataURL(format, quality);
         
-        // Compress further if the Base64 string is too large for Google Sheets (limit 50,000)
+        // If the browser doesn't support WebP encoding, it returns a PNG.
+        if (dataUrl.startsWith('data:image/png')) {
+          format = 'image/jpeg';
+          // JPEG doesn't support transparency, so we add a white background
+          ctx.globalCompositeOperation = "destination-over";
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          ctx.globalCompositeOperation = "source-over"; // reset
+          dataUrl = canvas.toDataURL(format, quality);
+        }
+        
+        // Compress further if the Base64 string is too large for Google Sheets (limit 50,000 chars)
         while (dataUrl.length > 45000 && quality > 0.1) {
           quality -= 0.1;
-          dataUrl = canvas.toDataURL('image/webp', quality);
+          dataUrl = canvas.toDataURL(format, quality);
+        }
+
+        // Failsafe: if it's STILL too big, cut dimensions in half
+        if (dataUrl.length > 45000) {
+          const failsafeCanvas = document.createElement('canvas');
+          failsafeCanvas.width = width * 0.5;
+          failsafeCanvas.height = height * 0.5;
+          const fsCtx = failsafeCanvas.getContext('2d');
+          if (format === 'image/jpeg') {
+              fsCtx.fillStyle = "#FFFFFF";
+              fsCtx.fillRect(0, 0, failsafeCanvas.width, failsafeCanvas.height);
+          }
+          fsCtx.drawImage(canvas, 0, 0, failsafeCanvas.width, failsafeCanvas.height);
+          dataUrl = failsafeCanvas.toDataURL(format, 0.5);
         }
         
         resolve(dataUrl);
