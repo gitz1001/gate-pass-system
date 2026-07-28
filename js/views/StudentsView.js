@@ -1,5 +1,5 @@
 import Icons from '../icons.js';
-import { escapeHTML } from '../utils.js';
+import { escapeHTML, resolvePhotoUrl, hasPhoto } from '../utils.js';
 
 export default class StudentsView {
   static render(model) {
@@ -397,7 +397,7 @@ export default class StudentsView {
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 11px;">
-                ${typeof s.photo === 'string' && s.photo.startsWith('data:image') ? `<img src="${escapeHTML(s.photo)}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
+                ${hasPhoto(s.photo) ? `<img src="${escapeHTML(resolvePhotoUrl(s.photo))}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
               </div>
               <div>
                 <div style="font-weight: 600;">${escapeHTML(s.name)}</div>

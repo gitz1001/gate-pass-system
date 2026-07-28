@@ -1,5 +1,5 @@
 import Icons from '../icons.js';
-import { escapeHTML } from '../utils.js';
+import { escapeHTML, resolvePhotoUrl, hasPhoto } from '../utils.js';
 
 export default class DashboardView {
   static render(model) {
@@ -256,8 +256,8 @@ export default class DashboardView {
       return `
         <div class="dash-activity-row${isDenied ? ' dash-activity-denied' : ''}">
           <div class="dash-activity-avatar${isDenied ? ' denied' : ''}">
-            ${student && typeof student.photo === 'string' && student.photo.startsWith('data:image')
-              ? `<img src="${student.photo}" alt="${sName}">`
+            ${student && hasPhoto(student.photo)
+              ? `<img src="${resolvePhotoUrl(student.photo)}" alt="${sName}">`
               : initials}
           </div>
           <div class="dash-activity-info">

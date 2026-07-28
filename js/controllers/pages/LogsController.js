@@ -48,25 +48,49 @@ export default class LogsController {
       });
     }
 
-    // Filter Logic (Search & Gate)
+    // Filter Logic (Search, Gate, Grade, Time)
     const searchIn = document.getElementById('logs-search');
     const gateSel = document.getElementById('logs-filter-gate');
+    const gradeSel = document.getElementById('logs-filter-grade');
+    const timeFrom = document.getElementById('logs-filter-time-from');
+    const timeTo = document.getElementById('logs-filter-time-to');
+    
     const filterLogs = () => {
       const term = (searchIn ? searchIn.value : '').toLowerCase();
       const gate = gateSel ? gateSel.value : 'all';
+      const grade = gradeSel ? gradeSel.value : 'all';
+      const tFrom = timeFrom ? timeFrom.value : ''; // format 'HH:MM'
+      const tTo = timeTo ? timeTo.value : '';       // format 'HH:MM'
+      
       const rows = document.querySelectorAll('#logs-table tbody tr');
       
       rows.forEach(row => {
         if (row.querySelector('.empty')) return; // skip empty msg
+        
         const text = row.textContent.toLowerCase();
-        const rowGate = row.cells[2] ? row.cells[2].textContent.trim() : '';
+        const rowGate = row.getAttribute('data-gate') || '';
+        const rowGrade = row.getAttribute('data-grade') || '';
+        const rowTime = row.getAttribute('data-time') || '';
+        
         const matchesSearch = text.includes(term);
         const matchesGate = gate === 'all' || rowGate === gate;
-        row.style.display = matchesSearch && matchesGate ? '' : 'none';
+        const matchesGrade = grade === 'all' || rowGrade === grade;
+        
+        let matchesTime = true;
+        if (tFrom && rowTime < tFrom) matchesTime = false;
+        if (tTo && rowTime > tTo) matchesTime = false;
+
+        row.style.display = matchesSearch && matchesGate && matchesGrade && matchesTime ? '' : 'none';
       });
     };
 
     if (searchIn) searchIn.addEventListener('input', filterLogs);
     if (gateSel) gateSel.addEventListener('change', filterLogs);
+    if (gradeSel) gradeSel.addEventListener('change', filterLogs);
+    if (timeFrom) timeFrom.addEventListener('input', filterLogs);
+    if (timeTo) timeTo.addEventListener('input', filterLogs);
+    
+    // Apply default filters on load (e.g., user's gate)
+    filterLogs();
   }
 }

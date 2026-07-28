@@ -74,35 +74,108 @@ export default class AppController {
     }
   }
 
-  // ── Sync Engine ────────────────────────────────────────
+  // ── Idle-Aware Sync Engine ──────────────────────────────
+  // Sync Strategy:
+  //   - NO polling while user is actively using the system
+  //   - Auto-sync every 60s ONLY when user is idle (no activity)
+  //   - Manual sync always available via btn-sync
+  //   - Pauses entirely when tab is hidden (Visibility API)
+  //   - Exponential backoff on errors (15s → 30s → 60s → 120s)
+  // ──────────────────────────────────────────────────────────
   initSync() {
+    // Initial sync on login
     if (this.model.currentUser) {
       this.performSync();
     }
 
-    // Auto-poll every 15 seconds (Optimized for 5-7 guards)
+    // ── Idle Detection Config ──
+    this.IDLE_THRESHOLD = 60000;      // 60s of no activity = idle
+    this.IDLE_SYNC_INTERVAL = 60000;  // When idle, sync every 60s
+    this.lastActivityTime = Date.now();
+    this.isUserIdle = false;
+    this.idleSyncTimer = null;
+    this.syncBackoffMs = 0;
+
+    // ── Unified Activity Tracker (also handles session timeout) ──
+    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown'];
+    let activityThrottle = 0;
+    activityEvents.forEach(evt => {
+      document.addEventListener(evt, () => {
+        const now = Date.now();
+        // Throttle: only process every 5 seconds to avoid excessive work
+        if (now - activityThrottle > 5000) {
+          activityThrottle = now;
+          this.lastActivityTime = now;
+          // Also update session activity (for session timeout tracking)
+          this.model.updateActivity();
+          // If user was idle, mark active and stop background sync
+          if (this.isUserIdle) {
+            this.isUserIdle = false;
+            this.stopIdleSyncLoop();
+          }
+        }
+      }, { passive: true });
+    });
+
+    // ── Idle State Checker (every 10s — lightweight, no API calls) ──
     setInterval(() => {
-      if (this.model.currentUser && navigator.onLine) {
+      if (!this.model.currentUser) return;
+      const idleFor = Date.now() - this.lastActivityTime;
+      if (idleFor >= this.IDLE_THRESHOLD && !this.isUserIdle) {
+        this.isUserIdle = true;
+        this.startIdleSyncLoop();
+      }
+      // Update sync status badge every 10s (instead of every 1s)
+      this.view.renderSyncStatus(this.model);
+    }, 10000);
+
+    // ── Visibility API: Pause when tab is hidden ──
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.stopIdleSyncLoop();
+      } else if (this.model.currentUser && navigator.onLine) {
+        // Tab regained focus — do one sync, then resume idle detection
         this.performSync();
       }
-    }, 15000);
+    });
 
-    // Update UI timer every second
-    setInterval(() => {
-      if (this.model.currentUser) this.view.renderSyncStatus(this.model);
-    }, 1000);
-
+    // ── Manual Sync Button ──
     const btnSync = document.getElementById('btn-sync');
     if (btnSync) btnSync.addEventListener('click', () => this.performSync());
 
+    // ── Online/Offline Handlers ──
     window.addEventListener('online', () => {
       this.model.isOnline = true;
       if (this.model.currentUser) this.performSync();
     });
     window.addEventListener('offline', () => {
       this.model.isOnline = false;
+      this.stopIdleSyncLoop();
       this.view.renderSyncStatus(this.model);
     });
+  }
+
+  startIdleSyncLoop() {
+    if (this.idleSyncTimer) return; // Already running
+    console.log('[Sync] User idle — starting background sync loop');
+    // Sync immediately on entering idle state
+    if (this.model.currentUser && navigator.onLine && !document.hidden) {
+      this.performSync();
+    }
+    // Then repeat every IDLE_SYNC_INTERVAL
+    this.idleSyncTimer = setInterval(() => {
+      if (this.model.currentUser && navigator.onLine && !document.hidden) {
+        this.performSync();
+      }
+    }, this.IDLE_SYNC_INTERVAL);
+  }
+
+  stopIdleSyncLoop() {
+    if (this.idleSyncTimer) {
+      clearInterval(this.idleSyncTimer);
+      this.idleSyncTimer = null;
+      console.log('[Sync] Idle sync loop stopped');
+    }
   }
 
   async performSync() {
@@ -112,9 +185,9 @@ export default class AppController {
     this.model.syncStatus = 'syncing';
     this.view.renderSyncStatus(this.model);
     
-    const success = await this.model.syncFromSheet();
+    const result = await this.model.syncFromSheet();
     
-    if (success && this.model.currentUser) {
+    if (result.success && this.model.currentUser) {
       // SECURITY CHECK: Ensure the currently logged-in user still exists in the database
       const validUser = this.model.users.find(u => u.username === this.model.currentUser.username);
       if (!validUser) {
@@ -122,18 +195,26 @@ export default class AppController {
         return;
       }
 
-      // Guard: Do not re-render if user is interacting with a modal, input field, or active camera
-      const hasOpenModal = Array.from(document.querySelectorAll('.overlay')).some(el => el.style.display !== 'none');
-      const activeElement = document.activeElement;
-      const isInputFocused = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
-      const isCameraActive = this.scannerActive || this.faceScanActive;
+      // ONLY re-render if data actually changed (hash mismatch)
+      if (result.changed) {
+        // Guard: Do not re-render if user is interacting with a modal, input field, or active camera
+        const hasOpenModal = Array.from(document.querySelectorAll('.overlay')).some(el => el.style.display !== 'none');
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
+        const isCameraActive = this.scannerActive || this.faceScanActive;
 
-      if (!hasOpenModal && !isInputFocused && !isCameraActive) {
-        // Re-render current page to show new data
-        this.view.showPage(this.view.currentPage, this.model);
-        this.bindPageEvents(this.view.currentPage);
+        if (!hasOpenModal && !isInputFocused && !isCameraActive) {
+          // Re-render current page to show new data
+          this.view.showPage(this.view.currentPage, this.model);
+          this.bindPageEvents(this.view.currentPage);
+        }
       }
-    } else if (!success) {
+
+      // Reset backoff on success
+      this.syncBackoffMs = 0;
+    } else if (!result.success) {
+      // Exponential backoff: increase delay on repeated failures
+      this.syncBackoffMs = Math.min((this.syncBackoffMs || 15000) * 2, 120000);
       this.view.showToast('Sync failed. Using offline cache.', 'error');
     }
     
@@ -246,19 +327,8 @@ export default class AppController {
       }
     });
 
-    // ── Activity Tracking (resets idle timer) ──────────────
-    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    let activityThrottle = 0;
-    activityEvents.forEach(evt => {
-      document.addEventListener(evt, () => {
-        const now = Date.now();
-        // Throttle: only update every 30 seconds to avoid excessive writes
-        if (now - activityThrottle > 30000) {
-          activityThrottle = now;
-          this.model.updateActivity();
-        }
-      }, { passive: true });
-    });
+    // NOTE: Activity tracking is now handled by the Idle-Aware Sync Engine in initSync().
+    // Session timeout (model.updateActivity) is also called there.
 
     // ── Session Timeout Checker (every 60 seconds) ────────
     this.sessionCheckInterval = setInterval(() => {
@@ -744,7 +814,7 @@ export default class AppController {
             }
 
             // Stage 2: Detect blink transition (open → closed)
-            if (this.eyeOpenFrames >= 3 && isBlinking) {
+            if (this.eyeOpenFrames >= 2 && isBlinking) {
               this.blinkTransition = true;
             }
 
@@ -763,10 +833,10 @@ export default class AppController {
                 statusOverlay.style.background = 'rgba(22,163,74,0.85)';
               }
 
-              // Small delay then enroll (tick loop is stopped)
+              // Quick delay then enroll (tick loop is stopped)
               setTimeout(() => {
                 this.enrollFaceFromDetection(detection);
-              }, 800);
+              }, 400);
               return;
             }
 
@@ -828,10 +898,11 @@ export default class AppController {
       }
     }
 
-    // Continue the loop (~500ms interval to save CPU)
+    // Continue the loop — fast during enrollment (150ms to catch blinks), slower during scan (500ms to save CPU)
+    const tickDelay = this.faceMode === 'enroll' ? 150 : 500;
     setTimeout(() => {
       requestAnimationFrame(() => this.tickFaceCamera());
-    }, 500);
+    }, tickDelay);
   }
 
   async enrollFaceFromDetection(detection) {
@@ -870,8 +941,8 @@ export default class AppController {
     faceBiometrics.enrollFace(student.id, detection.descriptor);
 
     // ── Also save to Google Sheets (FaceDescriptor column) ──
-    // We round to 4 decimal places to drastically reduce the payload size (prevents "Failed to fetch" network errors)
-    const descriptorArray = faceBiometrics.descriptorToArray(detection.descriptor).map(n => Number(n.toFixed(4)));
+    // We are restoring full mathematical precision for maximum accuracy!
+    const descriptorArray = faceBiometrics.descriptorToArray(detection.descriptor);
     const descriptorJson = JSON.stringify(descriptorArray);
     
     student.faceDescriptor = descriptorJson;

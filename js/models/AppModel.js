@@ -28,6 +28,7 @@ export default class AppModel {
     this.lastSyncTime = parseInt(localStorage.getItem('pgp_last_sync') || '0');
     this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'error'
     this.isOnline = navigator.onLine;
+    this.lastDataHash = null; // Change detection for sync optimization
 
     // Session timeout (15 minutes)
     this.SESSION_TIMEOUT = 15 * 60 * 1000;
@@ -45,6 +46,11 @@ export default class AppModel {
     try {
       const data = await SheetsService.getAll();
 
+      // Change detection: compare hash before updating
+      const newHash = this.computeDataHash(data);
+      const hasChanged = newHash !== this.lastDataHash;
+      this.lastDataHash = newHash;
+
       // Map Sheet columns to frontend field names
       this.students = (data.students || []).map(s => this.mapStudentFromSheet(s));
       this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -61,12 +67,12 @@ export default class AppModel {
       // Process any queued offline writes
       await this.processWriteQueue();
 
-      return true;
+      return { success: true, changed: hasChanged };
     } catch (err) {
       console.error('Sync failed:', err);
       this.syncStatus = 'error';
       this.isOnline = false;
-      return false;
+      return { success: false, changed: false };
     }
   }
 
@@ -110,6 +116,7 @@ export default class AppModel {
       PreferredGate: s.preferredGate || '',
       VehicleDetails: s.vehicleDetails || '',
       Address: s.address || '',
+      // Only include the photo if it exists. We'll strip it later if it's too large to prevent network crashes.
       Photo: s.photo || '',
       Status: s.status || 'active',
       FaceDescriptor: s.faceDescriptor || ''
@@ -143,6 +150,29 @@ export default class AppModel {
     localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
     localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
     localStorage.setItem('pgp_users', JSON.stringify(this.users));
+  }
+
+  // ── Change Detection ─────────────────────────────────────
+  computeDataHash(data) {
+    const str = JSON.stringify({
+      studentCount: (data.students || []).length,
+      logCount: (data.scan_logs || []).length,
+      tgpCount: (data.temporary_passes || []).length,
+      userCount: (data.users || []).length,
+      firstStudent: (data.students || [])[0]?.PassID || '',
+      lastStudent: (data.students || []).slice(-1)[0]?.PassID || '',
+      firstLog: (data.scan_logs || [])[0]?.id || '',
+      lastLog: (data.scan_logs || []).slice(-1)[0]?.id || '',
+      // Include a snapshot of statuses for edit detection
+      statusSnapshot: (data.students || []).map(s => s.Status || '').join(',')
+    });
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    return hash;
   }
 
   // ════════════════════════════════════════════════════════════
@@ -242,6 +272,15 @@ export default class AppModel {
 
     // Write full row to Sheet
     const sheetData = this.mapStudentToSheet(this.students[idx]);
+
+    // CRITICAL FIX: If the Photo is a massive legacy Base64 string (>50KB), 
+    // DO NOT send it in this payload. Apps Script will keep the existing photo 
+    // if the key is undefined. This prevents the "Failed to fetch" error!
+    if (sheetData.Photo && sheetData.Photo.length > 50000) {
+      console.warn(`[AppModel] Stripping massive legacy photo from payload to prevent network crash.`);
+      delete sheetData.Photo;
+    }
+
     try {
       await SheetsService.updateStudent(sheetData);
     } catch (err) {

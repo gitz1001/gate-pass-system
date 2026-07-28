@@ -9,8 +9,8 @@
 
 const MODEL_URL = './js/lib/face-api-models';
 
-// Match threshold: lower = stricter. 0.6 is the standard benchmark.
-const MATCH_THRESHOLD = 0.6;
+// Match threshold: lower = stricter. 0.45 provides high accuracy and prevents false positives.
+const MATCH_THRESHOLD = 0.45;
 
 class FaceBiometrics {
   constructor() {

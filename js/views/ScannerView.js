@@ -4,6 +4,7 @@ import { escapeHTML } from '../utils.js';
 export default class ScannerView {
   static render(model) {
     const todayLogs = (model.exitLogs || []).filter(l => l.timestamp && l.timestamp.startsWith(new Date().toLocaleDateString('en-CA')));
+    const userGate = model.currentUser?.gate || 'Main Gate';
 
     return `
       <div class="scanner-grid" style="align-items: start;">
@@ -20,9 +21,9 @@ export default class ScannerView {
             
             <div class="form-group" style="width: 160px; margin: 0;">
               <select id="scan-gate" class="form-input">
-                <option value="Main Gate">Main Gate</option>
-                <option value="Gate 1">Gate 1</option>
-                <option value="Gate 2">Gate 2</option>
+                <option value="Main Gate" ${userGate === 'Main Gate' ? 'selected' : ''}>Main Gate</option>
+                <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
+                <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
               </select>
             </div>
           </div>
