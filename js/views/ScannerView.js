@@ -1,5 +1,5 @@
 import Icons from '../icons.js';
-import { escapeHTML } from '../utils.js';
+import { escapeHTML, resolvePhotoUrl, hasPhoto } from '../utils.js';
 
 export default class ScannerView {
   static render(model) {
@@ -217,7 +217,7 @@ export default class ScannerView {
           ${student.vehicleDetails ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Vehicle:</b> ${escapeHTML(student.vehicleDetails)}</div>` : ''}
           ${message ? `<div style="font-size: 12px; font-weight: 600; margin-top: 6px; color: ${color};">${escapeHTML(message)}</div>` : ''}
         </div>
-        ${student.photo ? `<div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid ${border}; flex-shrink: 0;"><img src="${escapeHTML(student.photo)}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
+        ${hasPhoto(student.photo) ? `<div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid ${border}; flex-shrink: 0;"><img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
       </div>
     `;
   }

@@ -1,4 +1,5 @@
 import SheetsService from '../services/SheetsService.js';
+import { uploadPhotoLocally } from '../utils.js';
 
 // ════════════════════════════════════════════════════════════════
 // AppModel — Data Layer with Google Sheets + localStorage Cache
@@ -213,6 +214,12 @@ export default class AppModel {
   // ════════════════════════════════════════════════════════════
 
   async addStudent(student) {
+    // Intercept Base64 photos and save them locally to prevent Google Sheets bloat
+    if (student.photo && student.photo.startsWith('data:image')) {
+      const filenameBase = student.pgp || student.studid || student.id;
+      student.photo = await uploadPhotoLocally(filenameBase, student.photo);
+    }
+
     // Add to local cache immediately
     this.students.push(student);
     localStorage.setItem('pgp_students', JSON.stringify(this.students));
@@ -265,6 +272,12 @@ export default class AppModel {
   async updateStudent(updatedStudent) {
     const idx = this.students.findIndex(s => s.id === updatedStudent.id);
     if (idx === -1) return;
+
+    // Intercept Base64 photos and save them locally
+    if (updatedStudent.photo && updatedStudent.photo.startsWith('data:image')) {
+      const filenameBase = updatedStudent.pgp || updatedStudent.studid || updatedStudent.id;
+      updatedStudent.photo = await uploadPhotoLocally(filenameBase, updatedStudent.photo);
+    }
 
     // Merge updates into local cache
     this.students[idx] = { ...this.students[idx], ...updatedStudent };
