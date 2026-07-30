@@ -30,9 +30,7 @@ export default class SheetsService {
       return json.data;
     } catch (err) {
       console.error('Sheets API POST Error:', err);
-      if (typeof window !== 'undefined') {
-        alert("Google Sheets Update Failed: " + err.message + "\nCheck if the student's PassID exactly matches the sheet, or if the photo is still too large.");
-      }
+      // Note: Callers handle errors with toast notifications — no alert() needed
       throw err;
     }
   }

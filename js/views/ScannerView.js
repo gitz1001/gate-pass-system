@@ -4,7 +4,7 @@ import { escapeHTML, resolvePhotoUrl, hasPhoto } from '../utils.js';
 export default class ScannerView {
   static render(model) {
     const todayLogs = (model.exitLogs || []).filter(l => l.timestamp && l.timestamp.startsWith(new Date().toLocaleDateString('en-CA')));
-    const userGate = model.currentUser?.gate || 'Main Gate';
+    const userGate = model.currentUser?.gate || 'Gate 1';
 
     return `
       <div class="scanner-grid" style="align-items: start;">
@@ -19,11 +19,11 @@ export default class ScannerView {
               <div class="card-sub">Scan ID or enter pass number manually</div>
             </div>
             
-            <div class="form-group" style="width: 160px; margin: 0;">
-              <select id="scan-gate" class="form-input">
-                <option value="Main Gate" ${userGate === 'Main Gate' ? 'selected' : ''}>Main Gate</option>
+            <div class="form-group" style="width: 180px; margin: 0;">
+              <select id="scan-gate" class="form-input" ${model.currentUser?.role === 'guard' ? 'disabled style="opacity:0.7;cursor:not-allowed;"' : ''}>
                 <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
                 <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
+                <option value="College Gate" ${userGate === 'College Gate' ? 'selected' : ''}>College Gate</option>
               </select>
             </div>
           </div>
@@ -47,6 +47,9 @@ export default class ScannerView {
           <!-- Panels -->
           <div style="padding: 24px;">
             
+            <!-- Scan Result Box (Moved to top for visibility) -->
+            <div id="scan-result" style="display: none; margin-bottom: 24px; animation: slideDown 0.3s ease-out;"></div>
+
             <!-- USB Panel -->
             <div id="panel-usb" class="scan-panel" style="display: none;">
               <div style="background: var(--accent-soft); border: 2px solid var(--accent); border-radius: var(--radius); padding: 32px 24px; text-align: center;">
@@ -129,9 +132,6 @@ export default class ScannerView {
               </div>
             </div>
 
-            <!-- Scan Result Box (Shared) -->
-            <div id="scan-result" style="margin-top: 20px; display: none;"></div>
-
           </div>
         </div>
 
@@ -187,7 +187,7 @@ export default class ScannerView {
     }).join('');
   }
 
-  static renderResult(student, isDenied, message) {
+  static renderResult(student, isDenied, message, designatedGate = '') {
     if (!student) {
       return `
         <div style="background: var(--red-s); border: 1px solid var(--red); border-radius: var(--radius); padding: 16px; display: flex; gap: 12px; align-items: center; color: var(--red);">
@@ -207,17 +207,21 @@ export default class ScannerView {
 
     return `
       <div style="background: ${bg}; border: 2px solid ${border}; border-radius: var(--radius); padding: 20px; display: flex; gap: 16px; align-items: center;">
-        <div style="color: ${color};">${icon}</div>
+        <div style="color: ${color}; align-self: flex-start;">${icon}</div>
         <div style="flex: 1;">
-          <div style="font-weight: 800; font-size: 16px; color: ${color};">${isDenied ? 'EXIT DENIED' : 'EXIT GRANTED'}</div>
-          <div style="font-size: 14px; font-weight: 600; color: var(--text); margin: 2px 0;">${escapeHTML(student.name)} (${escapeHTML(student.studid || student.id)})</div>
-          <div style="font-size: 12px; color: var(--text2); margin-bottom: 4px;">${escapeHTML(student.grade)}</div>
-          ${student.preferredGate ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Gate:</b> ${escapeHTML(student.preferredGate)}</div>` : ''}
-          ${student.arrangements ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Arrangement:</b> ${escapeHTML(student.arrangements)}</div>` : ''}
-          ${student.vehicleDetails ? `<div style="font-size: 11px; margin-top: 2px; color: var(--text2);"><b>Vehicle:</b> ${escapeHTML(student.vehicleDetails)}</div>` : ''}
-          ${message ? `<div style="font-size: 12px; font-weight: 600; margin-top: 6px; color: ${color};">${escapeHTML(message)}</div>` : ''}
+          <div style="font-weight: 800; font-size: 20px; color: ${color}; letter-spacing: 0.5px;">${isDenied ? 'EXIT DENIED' : 'EXIT GRANTED'}</div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--text); margin: 4px 0;">${escapeHTML(student.name)} <span style="color: var(--text3); font-weight: 500;">(${escapeHTML(student.studid || student.id)})</span></div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--text2); margin-bottom: 12px;">${escapeHTML(student.grade)}</div>
+          
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${designatedGate ? `<div style="font-size: 13px; color: var(--text); padding: 6px 12px; background: rgba(0,0,0,0.05); border-radius: 6px; display: inline-block; border-left: 3px solid ${color};"><b>Gate:</b> ${escapeHTML(designatedGate)}</div>` : ''}
+            ${student.arrangements ? `<div style="font-size: 13px; color: var(--text); padding: 6px 12px; background: rgba(0,0,0,0.05); border-radius: 6px; display: inline-block; border-left: 3px solid ${color};"><b>Arrangement:</b> ${escapeHTML(student.arrangements)}</div>` : ''}
+            ${student.vehicleDetails ? `<div style="font-size: 13px; color: var(--text); padding: 6px 12px; background: rgba(0,0,0,0.05); border-radius: 6px; display: inline-block; border-left: 3px solid ${color};"><b>Vehicle:</b> ${escapeHTML(student.vehicleDetails)}</div>` : ''}
+          </div>
+
+          ${message ? `<div style="font-size: 14px; font-weight: 700; margin-top: 12px; color: ${color}; padding: 8px; background: rgba(255,255,255,0.5); border-radius: 6px;">${escapeHTML(message)}</div>` : ''}
         </div>
-        ${hasPhoto(student.photo) ? `<div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid ${border}; flex-shrink: 0;"><img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
+        ${hasPhoto(student.photo) ? `<div style="width: 120px; height: 120px; border-radius: 12px; overflow: hidden; border: 3px solid ${border}; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"><img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
       </div>
     `;
   }

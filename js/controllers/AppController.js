@@ -549,20 +549,35 @@ export default class AppController {
     let isDenied = false;
     let msg = '';
     let passType = 'PGP';
+    let designatedGate = 'Any authorized gate'; // fallback
+
+    const gateSelect = document.getElementById('scan-gate');
+    const scannerGate = gateSelect ? gateSelect.value : 'Gate 1';
+
+    // Helper for gate validation
+    const isGateAllowed = (allowedStr) => {
+      if (!allowedStr) return true; 
+      if (allowedStr.includes('All Gates') || allowedStr.includes('Any authorized gate')) return true;
+      return allowedStr.includes(scannerGate);
+    };
 
     // 1. Check if it's a TGP
     const tgp = this.model.getTGP(scannedData);
     if (tgp) {
       passType = 'TGP';
       student = this.model.getStudentByPassId(tgp.studentId) || this.model.getStudentByStudId(tgp.studentId);
+      designatedGate = tgp.gate || 'Any authorized gate';
       
       const todayStr = new Date().toLocaleDateString('en-CA');
       if (tgp.status !== 'approved') {
         isDenied = true;
-        msg = `TGP is ${tgp.status.toUpperCase()}`;
+        msg = tgp.status === 'used' ? 'Pass already used' : `TGP is ${tgp.status.toUpperCase()}`;
       } else if (tgp.validDate !== todayStr) {
         isDenied = true;
         msg = `TGP valid only for ${tgp.validDate}`;
+      } else if (!isGateAllowed(designatedGate)) {
+        isDenied = true;
+        msg = `Wrong gate. Must use: ${designatedGate}`;
       } else {
         msg = 'Valid Temporary Pass';
       }
@@ -576,26 +591,35 @@ export default class AppController {
 
       if (!student) {
         isDenied = true;
-      } else if (student.status !== 'active') {
-        isDenied = true;
-        msg = `Pass is ${student.status}`;
+        msg = 'Student not found in the system.';
       } else {
-        msg = 'Valid Permanent Pass';
+        designatedGate = student.preferredGate || 'Any authorized gate';
+        if (student.status !== 'active') {
+          isDenied = true;
+          msg = `Pass is ${student.status}`;
+        } else if (!isGateAllowed(designatedGate)) {
+          isDenied = true;
+          msg = `Wrong gate. Must use: ${designatedGate}`;
+        } else {
+          msg = 'Valid Permanent Pass';
+        }
       }
     }
 
     // Log the event
-    const gateSelect = document.getElementById('scan-gate');
-    const gate = gateSelect ? gateSelect.value : 'Main Gate';
-    
     await this.model.addExitLog({
       id: Date.now().toString(),
       studentId: student ? student.id : scannedData,
-      gate: gate,
+      gate: scannerGate,
       timestamp: new Date().toISOString(),
       result: isDenied ? 'denied' : 'granted',
       passType: passType
     });
+
+    // Mark TGP as used if successful
+    if (passType === 'TGP' && !isDenied) {
+      await this.model.updateTGPStatus(tgp.id, 'used');
+    }
 
     // Render result
     const resultBox = document.getElementById('scan-result');
@@ -603,13 +627,13 @@ export default class AppController {
       resultBox.style.display = 'block';
       // Use ScannerView directly for result rendering
       import('../views/ScannerView.js').then(module => {
-        resultBox.innerHTML = module.default.renderResult(student, isDenied, msg);
-        // Auto-hide result after 5s
+        resultBox.innerHTML = module.default.renderResult(student, isDenied, msg, designatedGate);
+        // Auto-hide result after 8s to allow reading arrangements
         setTimeout(() => {
           if (resultBox.innerHTML.includes(student ? student.name : 'Invalid Pass')) {
             resultBox.style.display = 'none';
           }
-        }, 5000);
+        }, 8000);
       });
     }
 

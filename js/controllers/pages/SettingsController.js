@@ -59,9 +59,7 @@ export default class SettingsController {
               if (data.exitLogs) controller.model.exitLogs = data.exitLogs;
               if (data.tgp) controller.model.tgp = data.tgp;
               
-              controller.model.saveStudents();
-              controller.model.saveLogs();
-              controller.model.saveTGP();
+              controller.model.cacheAll();
               
               controller.view.showToast('Data imported successfully. Refreshing...', 'success');
               setTimeout(() => window.location.reload(), 1500);
@@ -85,7 +83,7 @@ export default class SettingsController {
             controller.model.students = [];
             controller.model.exitLogs = [];
             controller.model.tgp = [];
-            controller.model.save();
+            controller.model.cacheAll();
             controller.view.showToast('All database records cleared', 'error');
             setTimeout(() => window.location.reload(), 1000);
           }

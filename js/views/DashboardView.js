@@ -72,7 +72,7 @@ export default class DashboardView {
           <div class="stat-icon" style="color:var(--accent-d);">${Icons['shield-check'](22)}</div>
           <div class="stat-val" style="color:var(--accent-d);">${activePGP}</div>
           <div class="stat-lbl">Active PGP Passes</div>
-          <div class="stat-sub">Valid for SY 2025–2026</div>
+          <div class="stat-sub">Valid for SY 2026–2027</div>
         </a>
         <a class="stat dash-stat-link" data-nav="students">
           <div class="dash-stat-accent" style="background:var(--primary);"></div>
@@ -262,7 +262,7 @@ export default class DashboardView {
           </div>
           <div class="dash-activity-info">
             <div class="dash-activity-name">${sName}</div>
-            <div class="dash-activity-meta">${sGrade} · ${log.gate || 'Main Gate'}</div>
+            <div class="dash-activity-meta">${sGrade} · ${log.gate || 'Gate 1'}</div>
           </div>
           <div class="dash-activity-status">
             <span class="badge ${isDenied ? 'b-denied' : 'b-active'}">${isDenied ? 'Denied' : 'Granted'}</span>

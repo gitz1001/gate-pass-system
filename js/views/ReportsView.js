@@ -31,7 +31,7 @@ export default class ReportsView {
     // ── 3. Gate Utilization (All Time) ──
     const gateUsage = {};
     logs.forEach(l => {
-      const gate = l.gate || 'Main Gate';
+      const gate = l.gate || 'Gate 1';
       gateUsage[gate] = (gateUsage[gate] || 0) + 1;
     });
     const sortedGates = Object.entries(gateUsage).sort((a, b) => b[1] - a[1]);

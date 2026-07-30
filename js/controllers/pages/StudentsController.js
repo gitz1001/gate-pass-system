@@ -1,5 +1,5 @@
 import Icons from '../../icons.js';
-import { escapeHTML } from '../../utils.js';
+import { escapeHTML, compressImage, resolvePhotoUrl, hasPhoto } from '../../utils.js';
 
 export default class StudentsController {
   static bind(controller) {
@@ -144,8 +144,8 @@ export default class StudentsController {
         // Reset photo upload state
         controller.editPhotoData = null;
         document.getElementById('edit-photo-file').value = '';
-        document.getElementById('edit-photo-preview').innerHTML = student.photo && typeof student.photo === 'string' && student.photo.startsWith('data:image') 
-          ? `<img src="${escapeHTML(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
+        document.getElementById('edit-photo-preview').innerHTML = hasPhoto(student.photo) 
+          ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
           : Icons['camera'](20);
 
         editModal.style.display = 'flex';
@@ -297,8 +297,8 @@ export default class StudentsController {
         const student = controller.model.students.find(s => s.id === id);
         if (!student) return;
         const target = document.getElementById('idcard-render-target');
-        const photoHtml = student.photo
-          ? `<img src="${escapeHTML(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
+        const photoHtml = hasPhoto(student.photo)
+          ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:#422467;">${escapeHTML(student.name.substring(0,2).toUpperCase())}</div>`;
         target.innerHTML = `
           <div id="idcard-capture" style="width:300px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">

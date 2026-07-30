@@ -81,9 +81,9 @@ export default class TGPView {
                 <div class="form-group">
                   <label>Designated Gate</label>
                   <select id="tgp-gate" class="form-input" required>
-                    <option value="Main Gate">Main Gate</option>
                     <option value="Gate 1">Gate 1</option>
                     <option value="Gate 2">Gate 2</option>
+                    <option value="College Gate">College Gate</option>
                   </select>
                 </div>
               </div>

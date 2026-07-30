@@ -1,3 +1,5 @@
+import { resolvePhotoUrl, hasPhoto, escapeHTML } from '../../utils.js';
+
 export default class TGPController {
   static bind(controller) {
     const modal = document.getElementById('modal-tgp');
@@ -99,8 +101,8 @@ export default class TGPController {
         const sGrade = student ? `${student.grade} ${student.section ? '- ' + student.section : ''}` : '';
         const dateStr = new Date(tgp.validDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
 
-        const photoHtml = student && student.photo
-          ? `<img src="${student.photo}" style="width:100%;height:100%;object-fit:cover;">`
+        const photoHtml = student && hasPhoto(student.photo)
+          ? `<img src="${resolvePhotoUrl(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#e08700;">${sName.substring(0,2).toUpperCase()}</div>`;
 
         const target = document.getElementById('tgp-card-render-target');

@@ -49,9 +49,9 @@ export default class LogsView {
           <div class="form-group" style="width: 140px; margin: 0;">
             <select id="logs-filter-gate" class="form-input">
               <option value="all">All Gates</option>
-              <option value="Main Gate" ${userGate === 'Main Gate' ? 'selected' : ''}>Main Gate</option>
               <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
               <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
+              <option value="College Gate" ${userGate === 'College Gate' ? 'selected' : ''}>College Gate</option>
             </select>
           </div>
           <div class="form-group" style="display: flex; gap: 8px; align-items: center; margin: 0;">
@@ -99,7 +99,7 @@ export default class LogsView {
       const timeVal = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
       
       const isDenied = log.result === 'denied';
-      const rowGate = escapeHTML(log.gate || 'Main Gate');
+      const rowGate = escapeHTML(log.gate || 'Gate 1');
 
       return `
         <tr data-gate="${rowGate}" data-grade="${sGrade}" data-time="${timeVal}">
@@ -111,7 +111,7 @@ export default class LogsView {
             <div style="font-weight: 600;">${sName}</div>
             <div style="font-size: 11px; color: var(--text3);">${sId}</div>
           </td>
-          <td>${log.gate || 'Main Gate'}</td>
+          <td>${log.gate || 'Gate 1'}</td>
           <td>
             <span class="badge ${isDenied ? 'b-denied' : 'b-active'}">${isDenied ? 'Denied' : 'Granted'}</span>
           </td>

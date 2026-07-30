@@ -135,17 +135,14 @@ export default class StudentsView {
                     <label>Preferred Gate</label>
                     <select id="w-gate" class="form-input">
                       <option value="">Select Gate...</option>
-                      <option value="Main Gate (Gate 2)">Main Gate (Gate 2)</option>
-                      <option value="Gate 1 (near Lux Hall)">Gate 1 (near Lux Hall)</option>
-                      <option value="College Gate (fronting McDonald's)">College Gate (fronting McDonald's)</option>
-                      <option value="Any authorized gate during dismissal">Any authorized gate during dismissal</option>
-                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall)">Main Gate (Gate 2), Gate 1 (near Lux Hall)</option>
-                      <option value="Main Gate (Gate 2), College Gate (fronting McDonald's)">Main Gate (Gate 2), College Gate (fronting McDonald's)</option>
-                      <option value="College Gate (fronting McDonald's), Any authorized gate during dismissal">College Gate, Any authorized gate</option>
-                      <option value="Main Gate (Gate 2), Any authorized gate during dismissal">Main Gate (Gate 2), Any authorized gate</option>
-                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), Any authorized gate during dismissal">Main Gate, Gate 1, Any authorized gate</option>
-                      <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), College Gate (fronting McDonald's), Any authorized gate during dismissal">All Gates</option>
-                      <option value="Main Gate (Gate 1 or 2)">Main Gate (Gate 1 or 2)</option>
+                      <option value="Gate 1">Gate 1</option>
+                      <option value="Gate 2">Gate 2</option>
+                      <option value="College Gate">College Gate</option>
+                      <option value="Gate 1 and Gate 2">Gate 1 and Gate 2</option>
+                      <option value="Gate 2 and College Gate">Gate 2 and College Gate</option>
+                      <option value="College Gate and Gate 1">College Gate and Gate 1</option>
+                      <option value="All Gates">All Gates</option>
+                      <option value="Any authorized gate">Any authorized gate</option>
                     </select>
                   </div>
                 </div>
@@ -321,17 +318,14 @@ export default class StudentsView {
                   <label>Preferred Gate</label>
                   <select id="edit-gate" class="form-input">
                     <option value="">Select Gate...</option>
-                    <option value="Main Gate (Gate 2)">Main Gate (Gate 2)</option>
-                    <option value="Gate 1 (near Lux Hall)">Gate 1 (near Lux Hall)</option>
-                    <option value="College Gate (fronting McDonald's)">College Gate (fronting McDonald's)</option>
-                    <option value="Any authorized gate during dismissal">Any authorized gate during dismissal</option>
-                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall)">Main Gate (Gate 2), Gate 1 (near Lux Hall)</option>
-                    <option value="Main Gate (Gate 2), College Gate (fronting McDonald's)">Main Gate (Gate 2), College Gate (fronting McDonald's)</option>
-                    <option value="College Gate (fronting McDonald's), Any authorized gate during dismissal">College Gate, Any authorized gate</option>
-                    <option value="Main Gate (Gate 2), Any authorized gate during dismissal">Main Gate (Gate 2), Any authorized gate</option>
-                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), Any authorized gate during dismissal">Main Gate, Gate 1, Any authorized gate</option>
-                    <option value="Main Gate (Gate 2), Gate 1 (near Lux Hall), College Gate (fronting McDonald's), Any authorized gate during dismissal">All Gates</option>
-                    <option value="Main Gate (Gate 1 or 2)">Main Gate (Gate 1 or 2)</option>
+                    <option value="Gate 1">Gate 1</option>
+                    <option value="Gate 2">Gate 2</option>
+                    <option value="College Gate">College Gate</option>
+                    <option value="Gate 1 and Gate 2">Gate 1 and Gate 2</option>
+                    <option value="Gate 2 and College Gate">Gate 2 and College Gate</option>
+                    <option value="College Gate and Gate 1">College Gate and Gate 1</option>
+                    <option value="All Gates">All Gates</option>
+                    <option value="Any authorized gate">Any authorized gate</option>
                   </select>
                 </div>
               </div>

@@ -32,7 +32,7 @@ export default class LogsController {
           const dateStr = date.toLocaleDateString('en-CA');
           const timeStr = date.toLocaleTimeString('en-GB');
           
-          csv += `${escapeCSV(dateStr)},${escapeCSV(timeStr)},${escapeCSV(sName)},${escapeCSV(sId)},${escapeCSV(log.gate || 'Main Gate')},${escapeCSV(log.result)},${escapeCSV(log.passType || 'PGP')}\n`;
+          csv += `${escapeCSV(dateStr)},${escapeCSV(timeStr)},${escapeCSV(sName)},${escapeCSV(sId)},${escapeCSV(log.gate || 'Gate 1')},${escapeCSV(log.result)},${escapeCSV(log.passType || 'PGP')}\n`;
         });
         
         const blob = new Blob([csv], { type: 'text/csv' });

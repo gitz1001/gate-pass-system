@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pgp-cache-v17';
+const CACHE_NAME = 'pgp-cache-v18';
 const urlsToCache = [
   './index.html',
   './css/styles.css',
@@ -8,9 +8,38 @@ const urlsToCache = [
   './js/icons.js',
   './js/lib/jsQR.min.js',
   './logo.png',
+  './SISC_logo.png',
+
+  // Models & Services
   './js/models/AppModel.js',
   './js/services/SheetsService.js',
+  './js/services/FaceBiometrics.js',
+
+  // Controllers
   './js/controllers/AppController.js',
+  './js/controllers/pages/LoginController.js',
+  './js/controllers/pages/DashboardController.js',
+  './js/controllers/pages/StudentsController.js',
+  './js/controllers/pages/ScannerController.js',
+  './js/controllers/pages/LogsController.js',
+  './js/controllers/pages/PGPController.js',
+  './js/controllers/pages/TGPController.js',
+  './js/controllers/pages/SettingsController.js',
+  './js/controllers/pages/ReportsController.js',
+
+  // Views
+  './js/views/AppView.js',
+  './js/views/LoginView.js',
+  './js/views/DashboardView.js',
+  './js/views/StudentsView.js',
+  './js/views/ScannerView.js',
+  './js/views/LogsView.js',
+  './js/views/PGPView.js',
+  './js/views/TGPView.js',
+  './js/views/ReportsView.js',
+  './js/views/SettingsView.js',
+  './js/views/UsersView.js',
+
   './manifest.json'
 ];
 
