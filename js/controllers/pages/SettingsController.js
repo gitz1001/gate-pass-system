@@ -1,3 +1,5 @@
+import Dialog from '../../services/Dialog.js';
+
 export default class SettingsController {
   static bind(controller) {
     // Theme Select
@@ -46,11 +48,16 @@ export default class SettingsController {
     if (btnImport && fileImport) {
       btnImport.addEventListener('click', () => fileImport.click());
       
-      fileImport.addEventListener('change', (e) => {
+      fileImport.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (confirm('Are you sure you want to import data? This will overwrite existing students, logs, and TGPs. This action cannot be undone.')) {
+        const confirmed = await Dialog.confirm(
+          'Import Data',
+          'Are you sure you want to import data? This will overwrite existing students, logs, and TGPs. This action cannot be undone.',
+          { confirmText: 'Yes, Import', type: 'warning' }
+        );
+        if (confirmed) {
           const reader = new FileReader();
           reader.onload = (event) => {
             try {
@@ -77,9 +84,19 @@ export default class SettingsController {
     // Clear Data
     const btnClear = document.getElementById('settings-clear-db');
     if (btnClear) {
-      btnClear.addEventListener('click', () => {
-        if (confirm('CRITICAL WARNING: This will permanently delete ALL students and logs. Are you absolutely sure?')) {
-          if (confirm('Are you REALLY sure? This cannot be undone.')) {
+      btnClear.addEventListener('click', async () => {
+        const confirmed1 = await Dialog.confirm(
+          'CRITICAL WARNING',
+          'This will permanently delete ALL students and logs. Are you absolutely sure?',
+          { confirmText: 'Delete All', type: 'danger' }
+        );
+        if (confirmed1) {
+          const confirmed2 = await Dialog.confirm(
+            'Final Confirmation',
+            'Are you REALLY sure? This cannot be undone.',
+            { confirmText: 'Yes, Delete Everything', type: 'danger' }
+          );
+          if (confirmed2) {
             controller.model.students = [];
             controller.model.exitLogs = [];
             controller.model.tgp = [];

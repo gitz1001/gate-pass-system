@@ -1,4 +1,5 @@
 import { resolvePhotoUrl, hasPhoto, escapeHTML } from '../../utils.js';
+import Dialog from '../../services/Dialog.js';
 
 export default class TGPController {
   static bind(controller) {
@@ -51,8 +52,14 @@ export default class TGPController {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const action = e.currentTarget.dataset.action;
+        const isApprove = action === 'approved';
+        const confirmed = await Dialog.confirm(
+          isApprove ? 'Approve Pass' : 'Reject Pass',
+          `Are you sure you want to ${isApprove ? 'APPROVE' : 'REJECT'} this pass?`,
+          { confirmText: isApprove ? 'Yes, Approve' : 'Yes, Reject', type: isApprove ? 'primary' : 'danger' }
+        );
         
-        if (confirm(`Are you sure you want to ${action === 'approved' ? 'APPROVE' : 'REJECT'} this pass?`)) {
+        if (confirmed) {
           await controller.model.updateTGPStatus(id, action);
           controller.view.showToast(`Pass ${action}`);
           controller.navigateToPage('tgp');

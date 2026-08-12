@@ -1,3 +1,5 @@
+import Dialog from '../../services/Dialog.js';
+
 export default class PGPController {
   static bind(controller) {
     // PGP Filters
@@ -42,7 +44,16 @@ export default class PGPController {
             ? 'Suspend this pass temporarily?' 
             : 'Reactivate this pass?';
             
-        if (confirm(confirmMsg)) {
+        const confirmed = await Dialog.confirm(
+          'Update Pass Status',
+          confirmMsg,
+          { 
+            confirmText: 'Yes, Update', 
+            type: action === 'revoked' ? 'danger' : action === 'suspended' ? 'warning' : 'primary' 
+          }
+        );
+            
+        if (confirmed) {
           await controller.model.updateStudentStatus(id, action);
           controller.view.showToast(`Pass status updated to ${action}`);
           controller.navigateToPage('pgp'); // Refresh view

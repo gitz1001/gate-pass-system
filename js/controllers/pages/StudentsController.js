@@ -1,5 +1,5 @@
-import Icons from '../../icons.js';
-import { escapeHTML, compressImage, resolvePhotoUrl, hasPhoto } from '../../utils.js';
+import { escapeHTML, compressImage, resolvePhotoUrl, hasPhoto, generatePGP } from '../../utils.js';
+import Dialog from '../../services/Dialog.js';
 
 export default class StudentsController {
   static bind(controller) {
@@ -93,8 +93,13 @@ export default class StudentsController {
         const id = e.currentTarget.dataset.id;
         const student = controller.model.students.find(s => s.id === id);
         if (!student) return;
-        if (confirm(`Archive "${student.name}"? Their PGP will be deactivated.`)) {
-          await controller.model.archiveStudent(id);
+        const confirmed = await Dialog.confirm(
+          'Archive Student',
+          `Archive "${student.name}"? Their PGP will be deactivated.`,
+          { confirmText: 'Yes, Archive', type: 'danger' }
+        );
+        if (confirmed) {
+          await controller.model.updateStudentStatus(id, 'archived');
           controller.view.showToast(`${student.name} has been archived`);
           controller.navigateToPage('students');
         }
@@ -107,7 +112,12 @@ export default class StudentsController {
         const id = e.currentTarget.dataset.id;
         const student = controller.model.students.find(s => s.id === id);
         if (!student) return;
-        if (confirm(`Restore "${student.name}" and reactivate their PGP?`)) {
+        const confirmed = await Dialog.confirm(
+          'Restore Student',
+          `Restore "${student.name}" and reactivate their PGP?`,
+          { confirmText: 'Yes, Restore', type: 'primary' }
+        );
+        if (confirmed) {
           await controller.model.updateStudentStatus(id, 'active');
           controller.view.showToast(`${student.name} has been restored`);
           controller.navigateToPage('students');
@@ -454,17 +464,23 @@ export default class StudentsController {
           const exists = controller.model.students.find(s => s.studid === studid);
           if (exists) { skipped++; continue; }
 
+          const section = sectionIdx >= 0 ? (row[sectionIdx]?.trim() || '') : '';
+
+          // Generate unique PGP ID: format {YY}{S}{GG}-{NNN}
+          const pgpId = generatePGP(grade, section, controller.model.students);
+
           const newStudent = {
-            id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6),
+            id: pgpId,
             name,
             studid,
             grade,
-            section: sectionIdx >= 0 ? (row[sectionIdx]?.trim() || '') : '',
+            section,
+            fullSection: section ? `${grade} - ${section}` : grade,
             parentName: parentNameIdx >= 0 ? (row[parentNameIdx]?.trim() || '') : '',
             parentEmail: parentEmailIdx >= 0 ? (row[parentEmailIdx]?.trim() || '') : '',
             phone: phoneIdx >= 0 ? (row[phoneIdx]?.trim() || '') : '',
             photo: '',
-            pgp: 'PGP-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            pgp: pgpId,
             status: 'active'
           };
           await controller.model.addStudent(newStudent);

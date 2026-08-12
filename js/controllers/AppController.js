@@ -11,6 +11,7 @@ import ScannerController from './pages/ScannerController.js';
 import ReportsController from './pages/ReportsController.js';
 import faceBiometrics from '../services/FaceBiometrics.js';
 import Icons from '../icons.js';
+import { generatePGP } from '../utils.js';
 
 export default class AppController {
   constructor(model, view) {
@@ -415,8 +416,11 @@ export default class AppController {
     const parentEmail = document.getElementById('w-parent-email').value;
     const parentPhone = document.getElementById('w-parent-phone').value;
 
+    // Generate unique PGP ID: format {YY}{S}{GG}-{NNN} e.g. "26A07-001"
+    const pgpId = generatePGP(grade, '', this.model.students);
+
     const newStudent = {
-      id: Date.now().toString(),
+      id: pgpId,
       name,
       studid,
       grade,
@@ -430,7 +434,7 @@ export default class AppController {
       phone: parentPhone,
       address: '',
       photo: this.tempPhotoData || '',
-      pgp: 'PGP-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      pgp: pgpId,
       status: 'active'
     };
 

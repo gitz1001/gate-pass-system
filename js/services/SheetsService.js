@@ -48,7 +48,7 @@ export default class SheetsService {
   }
 
   static async updateStudentStatus(id, status) {
-    return this.get('updateStudentStatus', { id, status });
+    return this.post('updateStudentStatus', { id, status });
   }
 
   static async updateStudent(student) {
@@ -56,7 +56,7 @@ export default class SheetsService {
   }
 
   static async removeStudent(id) {
-    return this.get('removeStudent', { id });
+    return this.post('removeStudent', { id });
   }
 
   // ── Scan Logs ─────────────────────────────────────────────

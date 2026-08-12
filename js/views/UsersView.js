@@ -45,7 +45,12 @@ export default class UsersView {
                   </td>
                   <td>${u.gate || 'Main Office'}</td>
                   <td>
-                    <span style="color: var(--green); font-size: 12px; font-weight: 600;">Active</span>
+                    ${(() => {
+                      const status = (u.status || 'active').toLowerCase();
+                      if (status === 'archived') return '<span class="badge b-denied" style="font-size:11px;">Archived</span>';
+                      if (status === 'inactive') return '<span class="badge b-pending" style="font-size:11px;">Inactive</span>';
+                      return '<span class="badge b-active" style="font-size:11px;">Active</span>';
+                    })()}
                   </td>
                 </tr>
               `).join('')}

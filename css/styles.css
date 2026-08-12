@@ -618,3 +618,66 @@ tr:hover td { background: var(--bg-elevated); }
     border-bottom: 1px solid #ddd !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CUSTOM DIALOG SYSTEM (Confirm, Prompt, Alert)
+   ═══════════════════════════════════════════════════════════════ */
+.dialog-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9999;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px);
+  animation: dialog-fade-in 0.2s ease forwards;
+}
+.dialog-box {
+  background: var(--bg-card); width: 400px; max-width: 90vw;
+  border-radius: var(--radius-lg); box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+  border: 1px solid var(--border); overflow: hidden;
+  animation: dialog-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.dialog-head {
+  padding: 16px 20px 12px; display: flex; align-items: center; gap: 12px;
+}
+.dialog-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.dialog-icon svg { width: 20px; height: 20px; }
+.dialog-icon.danger { background: var(--red-s); color: var(--red); }
+.dialog-icon.warning { background: var(--yellow-s); color: var(--yellow); }
+.dialog-icon.info { background: var(--primary-soft); color: var(--primary); }
+.dialog-title {
+  font-size: 16px; font-weight: 700; color: var(--text); flex: 1;
+}
+.dialog-body {
+  padding: 4px 20px 20px; font-size: 13.5px; color: var(--text2); line-height: 1.6;
+}
+.dialog-input {
+  width: 100%; margin-top: 12px; padding: 10px 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; outline: none;
+}
+.dialog-input:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); background: var(--bg-card);
+}
+.dialog-foot {
+  padding: 14px 20px; background: var(--bg-elevated); border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.dialog-btn {
+  padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; transition: 0.15s; outline: none;
+}
+.dialog-btn.cancel {
+  background: var(--bg-card); color: var(--text2); border: 1px solid var(--border2);
+}
+.dialog-btn.cancel:hover { background: var(--border); color: var(--text); }
+.dialog-btn.danger { background: var(--red); color: #fff; }
+.dialog-btn.danger:hover { background: #b91c1c; }
+.dialog-btn.primary { background: var(--primary); color: #fff; }
+.dialog-btn.primary:hover { background: var(--primary-l); }
+.dialog-overlay.closing { animation: dialog-fade-out 0.2s ease forwards; }
+.dialog-overlay.closing .dialog-box { animation: dialog-slide-down 0.2s ease forwards; }
+@keyframes dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-slide-up { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes dialog-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dialog-slide-down { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(10px) scale(0.95); } }
+

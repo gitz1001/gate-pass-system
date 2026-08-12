@@ -255,16 +255,18 @@ export default class AppModel {
   }
 
   async updateStudentStatus(id, status) {
-    const student = this.students.find(s => s.id === id);
+    const student = this.students.find(s => s.id === id || s.pgp === id);
     if (student) {
       student.status = status;
       localStorage.setItem('pgp_students', JSON.stringify(this.students));
 
+      // Always send the pgp value (= PassID in Sheet) for reliable backend lookup
+      const sheetId = student.pgp || student.id;
       try {
-        await SheetsService.updateStudentStatus(id, status);
+        await SheetsService.updateStudentStatus(sheetId, status);
       } catch (err) {
         console.error('Failed to update status on Sheet, queuing...', err);
-        await this.queueWrite('updateStudentStatus', { id, status });
+        await this.queueWrite('updateStudentStatus', { id: sheetId, status });
       }
     }
   }
@@ -391,7 +393,8 @@ export default class AppModel {
     }
 
     const user = this.users.find(u =>
-      u.username === username && u.password === password
+      u.username === username && u.password === password &&
+      (!u.status || u.status.toLowerCase() === 'active')
     );
 
     if (user) {

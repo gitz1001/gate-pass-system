@@ -165,3 +165,87 @@ export async function uploadPhotoLocally(studentId, base64Data) {
     return base64Data; // Fallback to Base64 if server is unreachable
   }
 }
+
+// ════════════════════════════════════════════════════════════════
+// PGP ID Generator — Format: {YY}{S}{GG}-{NNN}
+// Example: 26A07-001 = Year 2026, Section starting with "A", Grade 7, student #001
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Current school year prefix (first 2 digits of the starting year).
+ * For SY 2026-2027, this is '26'.
+ */
+export const CURRENT_SCHOOL_YEAR = '26';
+
+/**
+ * Extract a 2-character grade code from a grade string.
+ * "Grade 7" → "07", "Grade 10" → "10", "Grade 12" → "12"
+ * "Pre-school" → "PS", "College" → "CO"
+ * Unknown → "XX"
+ */
+export function gradeToCode(gradeStr) {
+  if (!gradeStr) return 'XX';
+  const trimmed = gradeStr.trim();
+
+  // Match "Grade N" or "N" patterns
+  const match = trimmed.match(/(\d+)/);
+  if (match) {
+    return match[1].padStart(2, '0'); // "7" → "07", "10" → "10"
+  }
+
+  // Special grade levels
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('pre-school') || lower.includes('preschool') || lower.includes('kinder')) return 'PS';
+  if (lower.includes('college')) return 'CO';
+
+  return 'XX';
+}
+
+/**
+ * Extract a section code letter from a section name.
+ * Uses the first uppercase letter of the section name.
+ * "Diligence" → "D", "Integrity" → "I", "" → "X"
+ */
+export function sectionToCode(sectionStr) {
+  if (!sectionStr || typeof sectionStr !== 'string') return 'X';
+  const trimmed = sectionStr.trim();
+  if (!trimmed) return 'X';
+  // Use first letter, uppercased
+  return trimmed.charAt(0).toUpperCase();
+}
+
+/**
+ * Generate a unique PGP ID in the format: {YY}{S}{GG}-{NNN}
+ * 
+ * @param {string} grade - The grade level string (e.g., "Grade 7", "Grade 10")
+ * @param {string} section - The section name (e.g., "Diligence", "A")
+ * @param {Array} existingStudents - Array of existing student objects to check for duplicates
+ * @param {string} [schoolYear] - Optional override for the year prefix (default: CURRENT_SCHOOL_YEAR)
+ * @returns {string} A unique PGP ID like "26D07-001"
+ */
+export function generatePGP(grade, section, existingStudents, schoolYear) {
+  const yy = schoolYear || CURRENT_SCHOOL_YEAR;
+  const sCode = sectionToCode(section);
+  const gCode = gradeToCode(grade);
+  const prefix = `${yy}${sCode}${gCode}`; // e.g., "26A07"
+
+  // Find the highest existing number for this prefix
+  const existingNumbers = (existingStudents || [])
+    .filter(s => s.pgp && s.pgp.startsWith(prefix + '-'))
+    .map(s => {
+      const parts = s.pgp.split('-');
+      return parseInt(parts[1], 10);
+    })
+    .filter(n => !isNaN(n));
+
+  const nextNumber = existingNumbers.length > 0
+    ? Math.max(...existingNumbers) + 1
+    : 1; // Start from 001
+
+  if (nextNumber > 999) {
+    throw new Error(`PGP capacity exceeded for prefix "${prefix}". Max 999 students per section per grade per year.`);
+  }
+
+  return `${prefix}-${String(nextNumber).padStart(3, '0')}`;
+  // Result: "26A07-001", "26A07-002", etc.
+}
