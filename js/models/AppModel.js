@@ -200,6 +200,8 @@ export default class AppModel {
         else if (item.action === 'updateStudent') await SheetsService.updateStudent(item.data);
         else if (item.action === 'removeStudent') await SheetsService.removeStudent(item.data.id);
         console.log('Queued write sent:', item.action);
+        // Add delay to prevent rate limiting from backend when processing large queues
+        await new Promise(resolve => setTimeout(resolve, 800));
       } catch (err) {
         console.error('Queued write failed, keeping in queue:', err);
         remaining.push(item);

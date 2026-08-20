@@ -4,6 +4,7 @@ import Dialog from '../../services/Dialog.js';
 export default class StudentsController {
   static bind(controller) {
     controller.currentWizardStep = 1;
+    controller.viewMode = controller.viewMode || 'card';
     const btnAdd = document.getElementById('btn-add-student');
     const wizardModal = document.getElementById('modal-wizard');
     if (btnAdd && wizardModal) {
@@ -87,80 +88,8 @@ export default class StudentsController {
         }
       });
     }
-    // ── Archive Student ─────────────────────────────────────
-    document.querySelectorAll('.btn-archive-student').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
-        if (!student) return;
-        const confirmed = await Dialog.confirm(
-          'Archive Student',
-          `Archive "${student.name}"? Their PGP will be deactivated.`,
-          { confirmText: 'Yes, Archive', type: 'danger' }
-        );
-        if (confirmed) {
-          await controller.model.updateStudentStatus(id, 'archived');
-          controller.view.showToast(`${student.name} has been archived`);
-          controller.navigateToPage('students');
-        }
-      });
-    });
-
-    // ── Restore Student ─────────────────────────────────────
-    document.querySelectorAll('.btn-restore-student').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
-        if (!student) return;
-        const confirmed = await Dialog.confirm(
-          'Restore Student',
-          `Restore "${student.name}" and reactivate their PGP?`,
-          { confirmText: 'Yes, Restore', type: 'primary' }
-        );
-        if (confirmed) {
-          await controller.model.updateStudentStatus(id, 'active');
-          controller.view.showToast(`${student.name} has been restored`);
-          controller.navigateToPage('students');
-        }
-      });
-    });
-
-    // ── Edit Student ────────────────────────────────────────
-    const editModal = document.getElementById('modal-edit-student');
-    const btnCloseEdit = document.getElementById('btn-close-edit');
-    const btnCancelEdit = document.getElementById('btn-cancel-edit');
-
-    if (btnCloseEdit && editModal) btnCloseEdit.addEventListener('click', () => editModal.style.display = 'none');
-    if (btnCancelEdit && editModal) btnCancelEdit.addEventListener('click', () => editModal.style.display = 'none');
-
-    document.querySelectorAll('.btn-edit-student').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
-        if (!student || !editModal) return;
-
-        // Pre-fill form
-        document.getElementById('edit-id').value = student.id;
-        document.getElementById('edit-name').value = student.name || '';
-        document.getElementById('edit-studid').value = student.studid || '';
-        document.getElementById('edit-grade').value = student.grade || '';
-        document.getElementById('edit-gate').value = student.preferredGate || '';
-        document.getElementById('edit-arrangements').value = student.arrangements || '';
-        document.getElementById('edit-vehicle').value = student.vehicleDetails || '';
-        document.getElementById('edit-parent-name').value = student.parentName || '';
-        document.getElementById('edit-parent-email').value = student.parentEmail || '';
-        document.getElementById('edit-parent-phone').value = student.phone || '';
-
-        // Reset photo upload state
-        controller.editPhotoData = null;
-        document.getElementById('edit-photo-file').value = '';
-        document.getElementById('edit-photo-preview').innerHTML = hasPhoto(student.photo) 
-          ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
-          : Icons['camera'](20);
-
-        editModal.style.display = 'flex';
-      });
-    });
+    // ── Bind Action Buttons ─────────────────────────────────
+    StudentsController.bindRowActionsOnly(controller);
 
     const editPhotoInput = document.getElementById('edit-photo-file');
     if (editPhotoInput) {
@@ -242,12 +171,12 @@ export default class StudentsController {
         pill.style.color = 'var(--primary)';
 
         const grade = pill.dataset.grade;
-        document.querySelectorAll('#students-table tbody tr').forEach(row => {
-          if (row.querySelector('.empty')) return;
+        document.querySelectorAll('#students-table tbody tr, #students-grid .student-card').forEach(el => {
+          if (el.classList.contains('empty') || el.textContent.includes('No students found')) return;
           if (grade === 'All') {
-            row.style.display = '';
+            el.style.display = '';
           } else {
-            row.style.display = row.dataset.grade === grade ? '' : 'none';
+            el.style.display = el.dataset.grade === grade ? '' : 'none';
           }
         });
       });
@@ -273,11 +202,15 @@ export default class StudentsController {
         const status = tab.dataset.status;
         const filtered = controller.model.students.filter(s => s.status === status);
         const tbody = document.querySelector('#students-table tbody');
-        if (tbody) {
-          import('../views/StudentsView.js').then(module => {
-            tbody.innerHTML = module.default.renderTableRows(filtered, controller.model);
-            // Re-bind action buttons for the newly rendered rows
-            StudentsController.bind(controller);
+        const grid = document.getElementById('students-grid');
+        
+        if (tbody || grid) {
+          import('../../views/StudentsView.js').then(module => {
+            if (tbody) tbody.innerHTML = module.default.renderTableRows(filtered, controller.model);
+            if (grid) grid.innerHTML = module.default.renderCardView(filtered, controller.model);
+            // Re-bind action buttons for the newly rendered elements ONLY
+            StudentsController.bindRowActionsOnly(controller);
+            StudentsController.bindIdCard(controller);
           });
         }
       });
@@ -285,16 +218,138 @@ export default class StudentsController {
 
     StudentsController.bindIdCard(controller);
     StudentsController.bindCSVImport(controller);
+    StudentsController.bindExportAll(controller);
     const searchIn = document.getElementById('students-search');
     if (searchIn) {
       searchIn.addEventListener('input', () => {
         const term = searchIn.value.toLowerCase();
-        document.querySelectorAll('#students-table tbody tr').forEach(row => {
-          if (row.querySelector('.empty')) return;
-          row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        document.querySelectorAll('#students-table tbody tr, #students-grid .student-card').forEach(el => {
+          if (el.classList.contains('empty') || el.textContent.includes('No students found')) return;
+          el.style.display = el.textContent.toLowerCase().includes(term) ? '' : 'none';
         });
       });
     }
+
+    StudentsController.bindViewToggles(controller);
+  }
+
+  static bindViewToggles(controller) {
+    const btnTable = document.getElementById('view-toggle-table');
+    const btnCard = document.getElementById('view-toggle-card');
+    const tableContainer = document.getElementById('students-table-container');
+    const gridContainer = document.getElementById('students-grid-container');
+
+    const updateView = () => {
+      if (controller.viewMode === 'table') {
+        if (btnTable) {
+          btnTable.classList.add('active');
+          btnTable.style.background = 'var(--primary-soft)';
+          btnTable.style.color = 'var(--primary)';
+        }
+        if (btnCard) {
+          btnCard.classList.remove('active');
+          btnCard.style.background = 'transparent';
+          btnCard.style.color = 'var(--text3)';
+        }
+        if (tableContainer) tableContainer.style.display = '';
+        if (gridContainer) gridContainer.style.display = 'none';
+      } else {
+        if (btnCard) {
+          btnCard.classList.add('active');
+          btnCard.style.background = 'var(--primary-soft)';
+          btnCard.style.color = 'var(--primary)';
+        }
+        if (btnTable) {
+          btnTable.classList.remove('active');
+          btnTable.style.background = 'transparent';
+          btnTable.style.color = 'var(--text3)';
+        }
+        if (tableContainer) tableContainer.style.display = 'none';
+        if (gridContainer) gridContainer.style.display = 'block';
+      }
+    };
+
+    if (btnTable) {
+      btnTable.addEventListener('click', () => {
+        controller.viewMode = 'table';
+        updateView();
+      });
+    }
+
+    if (btnCard) {
+      btnCard.addEventListener('click', () => {
+        controller.viewMode = 'card';
+        updateView();
+      });
+    }
+
+    updateView(); // Apply initial state
+  }
+
+  static bindRowActionsOnly(controller) {
+    document.querySelectorAll('.btn-archive-student').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        if (!student) return;
+        const confirmed = await Dialog.confirm(
+          'Archive Student',
+          `Archive "${student.name}"? Their PGP will be deactivated.`,
+          { confirmText: 'Yes, Archive', type: 'danger' }
+        );
+        if (confirmed) {
+          await controller.model.updateStudentStatus(id, 'archived');
+          controller.view.showToast(`${student.name} has been archived`);
+          controller.navigateToPage('students');
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-restore-student').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        if (!student) return;
+        const confirmed = await Dialog.confirm(
+          'Restore Student',
+          `Restore "${student.name}" and reactivate their PGP?`,
+          { confirmText: 'Yes, Restore', type: 'primary' }
+        );
+        if (confirmed) {
+          await controller.model.updateStudentStatus(id, 'active');
+          controller.view.showToast(`${student.name} has been restored`);
+          controller.navigateToPage('students');
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-edit-student').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const student = controller.model.students.find(s => s.id === id);
+        const editModal = document.getElementById('modal-edit-student');
+        if (!student || !editModal) return;
+
+        document.getElementById('edit-id').value = student.id;
+        document.getElementById('edit-name').value = student.name || '';
+        document.getElementById('edit-studid').value = student.studid || '';
+        document.getElementById('edit-grade').value = student.grade || '';
+        document.getElementById('edit-gate').value = student.preferredGate || '';
+        document.getElementById('edit-arrangements').value = student.arrangements || '';
+        document.getElementById('edit-vehicle').value = student.vehicleDetails || '';
+        document.getElementById('edit-parent-name').value = student.parentName || '';
+        document.getElementById('edit-parent-email').value = student.parentEmail || '';
+        document.getElementById('edit-parent-phone').value = student.phone || '';
+
+        controller.editPhotoData = null;
+        document.getElementById('edit-photo-file').value = '';
+        document.getElementById('edit-photo-preview').innerHTML = hasPhoto(student.photo) 
+          ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
+          : Icons['camera'](20);
+
+        editModal.style.display = 'flex';
+      });
+    });
   }
 
   static bindIdCard(controller) {
@@ -311,7 +366,7 @@ export default class StudentsController {
           ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:#422467;">${escapeHTML(student.name.substring(0,2).toUpperCase())}</div>`;
         target.innerHTML = `
-          <div id="idcard-capture" style="width:300px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">
+          <div id="idcard-capture" data-name="${escapeHTML(student.name)}" style="width:300px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">
             <div style="background:#422467;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#fff;">
               <div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="SISC_logo.png" style="width:100%;height:100%;object-fit:contain;" alt="SISC" onerror="this.style.display='none'"></div>
               <div>
@@ -353,7 +408,9 @@ export default class StudentsController {
         html2canvas(captureArea, { scale: 3 }).then(canvas => {
           const a = document.createElement('a');
           a.href = canvas.toDataURL("image/png");
-          a.download = `PGP_Card_${Date.now()}.png`;
+          const rawName = captureArea.dataset.name || `PGP_Card_${Date.now()}`;
+          const safeName = rawName.replace(/[^a-zA-Z0-9 \-_]/g, '').trim().replace(/\s+/g, '_');
+          a.download = `${safeName}.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           btnDownload.innerHTML = `${Icons['download'](14)} Download Image`;
           btnDownload.disabled = false;
@@ -364,6 +421,120 @@ export default class StudentsController {
         });
       });
     }
+  }
+
+  static bindExportAll(controller) {
+    const btnExport = document.getElementById('btn-export-ids');
+    if (!btnExport) return;
+
+    btnExport.addEventListener('click', async () => {
+      const activeStudents = controller.model.students.filter(s => s.status === 'active');
+      if (activeStudents.length === 0) {
+        controller.view.showToast('No active students to export.', 'error');
+        return;
+      }
+
+      if (!window.JSZip) {
+        controller.view.showToast('ZIP library not loaded. Please wait or reload the page.', 'error');
+        return;
+      }
+
+      const confirmed = await Dialog.confirm(
+        'Export All IDs',
+        `This will generate and download a ZIP file containing the ID cards for all ${activeStudents.length} active students. This process may take a minute. Continue?`,
+        { confirmText: 'Yes, Export All', type: 'primary' }
+      );
+      if (!confirmed) return;
+
+      btnExport.innerHTML = 'Generating...';
+      btnExport.disabled = true;
+
+      try {
+        const zip = new JSZip();
+        
+        // Temporary off-screen container for rendering
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        document.body.appendChild(tempContainer);
+
+        let processed = 0;
+        
+        for (const student of activeStudents) {
+          const photoHtml = hasPhoto(student.photo)
+            ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" style="width:100%;height:100%;object-fit:cover;">`
+            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:#422467;">${escapeHTML((student.name || 'U').substring(0,2).toUpperCase())}</div>`;
+          
+          tempContainer.innerHTML = `
+            <div id="temp-idcard-capture" style="width:300px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);font-family:'Segoe UI',sans-serif;">
+              <div style="background:#422467;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#fff;">
+                <div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="SISC_logo.png" style="width:100%;height:100%;object-fit:contain;" alt="SISC" onerror="this.style.display='none'"></div>
+                <div>
+                  <div style="font-size:12px;font-weight:800;letter-spacing:0.5px;line-height:1.2;">SOUTHVILLE INTERNATIONAL</div>
+                  <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.3;">1281 Tropical Ave Cor. Luxembourg St.<br>BF International, Las Piñas City</div>
+                </div>
+              </div>
+              <div style="text-align:center;padding:10px 0 8px;"><div style="font-size:10px;color:#00c9b1;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Permanent Gate Pass</div></div>
+              <div style="display:flex;gap:14px;align-items:center;padding:0 20px 14px;">
+                <div style="width:80px;height:80px;border-radius:10px;border:3px solid #00c9b1;overflow:hidden;background:#f0ebf7;flex-shrink:0;">${photoHtml}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:18px;font-weight:800;color:#1f2937;line-height:1.15;margin-bottom:4px;">${escapeHTML(student.name)}</div>
+                  <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:2px;">ID: <span style="color:#422467;font-weight:700;">${escapeHTML(student.studid || student.id)}</span></div>
+                  <div style="font-size:11px;color:#6b7280;font-weight:600;">${escapeHTML(student.grade)}${student.section ? ' - ' + escapeHTML(student.section) : ''}</div>
+                </div>
+              </div>
+              <div style="padding:0 20px;margin-bottom:8px;"><div style="background:#FDE047;border-radius:6px;padding:8px 10px;text-align:center;border:1px solid #facc15;"><div style="font-size:11px;font-weight:700;color:#1f2937;line-height:1.3;">${escapeHTML(student.arrangements || 'No arrangement specified')}</div></div></div>
+              <div style="padding:0 20px;margin-bottom:16px;"><div style="background:#f3f4f6;border-radius:6px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:9px;text-transform:uppercase;color:#6b7280;font-weight:700;letter-spacing:0.5px;">Exit Gate</div><div style="font-size:11px;font-weight:700;color:#422467;">${escapeHTML(student.preferredGate || 'Any authorized gate')}</div></div></div>
+              <div style="background:#f5f4f8;border-radius:8px;padding:14px;margin:0 20px 16px;display:flex;flex-direction:column;align-items:center;">
+                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:8px;letter-spacing:1px;">Scan to Verify</div>
+                <div id="temp-idcard-qrcode"></div>
+                <div style="font-size:12px;font-weight:700;font-family:monospace;color:#422467;margin-top:8px;letter-spacing:1.5px;">${escapeHTML(student.pgp)}</div>
+              </div>
+              <div style="background:#00c9b1;padding:10px;text-align:center;color:#003d35;font-size:10px;font-weight:700;">A.Y. 2026-2027 · VALID UNTIL JULY 2027</div>
+            </div>`;
+
+          // Generate QR Code
+          new QRCode(document.getElementById('temp-idcard-qrcode'), { 
+            text: student.pgp || student.studid || student.id || 'N/A', 
+            width: 120, height: 120, colorDark: "#1f2937", colorLight: "#f5f4f8" 
+          });
+
+          // Wait a tiny bit for the QR code to finish rendering its image data
+          await new Promise(r => setTimeout(r, 100));
+
+          const captureArea = document.getElementById('temp-idcard-capture');
+          const canvas = await html2canvas(captureArea, { scale: 3, logging: false });
+          const base64Data = canvas.toDataURL("image/png").replace(/^data:image\/(png|jpg);base64,/, "");
+          
+          const safeName = (student.name || `PGP_Card_${student.pgp}`).replace(/[^a-zA-Z0-9 \-_]/g, '').trim().replace(/\s+/g, '_');
+          zip.file(`${safeName}.png`, base64Data, {base64: true});
+          
+          processed++;
+          btnExport.innerHTML = `Generating... ${processed}/${activeStudents.length}`;
+        }
+
+        document.body.removeChild(tempContainer);
+        btnExport.innerHTML = 'Zipping files...';
+        
+        const content = await zip.generateAsync({type:"blob"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = `PGP_IDs_${Date.now()}.zip`;
+        document.body.appendChild(a); 
+        a.click(); 
+        document.body.removeChild(a);
+        
+        controller.view.showToast('IDs exported successfully!', 'success');
+        
+      } catch (err) {
+        console.error('Export failed:', err);
+        controller.view.showToast('Failed to export IDs.', 'error');
+      }
+
+      btnExport.innerHTML = `${Icons['download'](14)} Export All IDs`;
+      btnExport.disabled = false;
+    });
   }
 
   static bindCSVImport(controller) {
@@ -449,6 +620,9 @@ export default class StudentsController {
         const parentNameIdx = headers.indexOf('parentname');
         const parentEmailIdx = headers.indexOf('parentemail');
         const phoneIdx = headers.indexOf('phone');
+        const gateIdx = headers.indexOf('preferredgate');
+        const arrangementsIdx = headers.indexOf('arrangements');
+        const vehicleIdx = headers.indexOf('vehicledetails');
 
         let imported = 0;
         let skipped = 0;
@@ -476,6 +650,9 @@ export default class StudentsController {
             grade,
             section,
             fullSection: section ? `${grade} - ${section}` : grade,
+            preferredGate: gateIdx >= 0 ? (row[gateIdx]?.trim() || '') : '',
+            arrangements: arrangementsIdx >= 0 ? (row[arrangementsIdx]?.trim() || '') : '',
+            vehicleDetails: vehicleIdx >= 0 ? (row[vehicleIdx]?.trim() || '') : '',
             parentName: parentNameIdx >= 0 ? (row[parentNameIdx]?.trim() || '') : '',
             parentEmail: parentEmailIdx >= 0 ? (row[parentEmailIdx]?.trim() || '') : '',
             phone: phoneIdx >= 0 ? (row[phoneIdx]?.trim() || '') : '',
@@ -484,6 +661,8 @@ export default class StudentsController {
             status: 'active'
           };
           await controller.model.addStudent(newStudent);
+          // Add a short delay to prevent Google Apps Script rate limits on bulk upload
+          await new Promise(resolve => setTimeout(resolve, 500));
           imported++;
         }
 

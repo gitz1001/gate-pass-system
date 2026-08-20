@@ -17,6 +17,9 @@ export default class StudentsView {
           </div>
           ${model.currentUser && model.currentUser.role !== 'guard' ? `
           <div class="flex gap-8">
+            <button class="btn btn-ghost btn-sm" id="btn-export-ids">
+              ${Icons['download'](14)} Export All IDs
+            </button>
             <button class="btn btn-ghost btn-sm" id="btn-import-csv">
               ${Icons['file-text'](14)} Import CSV
             </button>
@@ -30,7 +33,7 @@ export default class StudentsView {
         <!-- Status Tabs -->
         <div style="display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; gap: 4px;">
           <button class="pill student-status-tab active" data-status="active" style="border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 600; font-size: 12px; border: 1px solid var(--border); border-bottom: none; background: var(--bg-card); color: var(--primary);">Active Students</button>
-          <button class="pill student-status-tab" data-status="archived" style="border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 500; font-size: 12px; border: 1px solid transparent; color: var(--text3); background: transparent;">Archived</button>
+          <button class="pill student-status-tab" data-status="archived" style="border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 500; font-size: 12px; border: 1px solid transparent; color: var(--text3); background: transparent;">Archived Students</button>
         </div>
 
         <!-- Filter Bar: Search + Grade Pills -->
@@ -45,9 +48,17 @@ export default class StudentsView {
               </button>
             `).join('')}
           </div>
+          <div style="margin-left: auto; display: flex; gap: 4px; background: var(--bg-card); padding: 2px; border-radius: 6px; border: 1px solid var(--border);">
+            <button id="view-toggle-table" class="view-toggle active" style="padding: 6px; border-radius: 4px; border: none; background: var(--primary-soft); color: var(--primary); cursor: pointer;" title="Table View">
+              ${Icons['list'](16)}
+            </button>
+            <button id="view-toggle-card" class="view-toggle" style="padding: 6px; border-radius: 4px; border: none; background: transparent; color: var(--text3); cursor: pointer;" title="Card View">
+              ${Icons['layout-grid'](16)}
+            </button>
+          </div>
         </div>
 
-        <div class="tbl-wrap">
+        <div class="tbl-wrap" id="students-table-container">
           <table id="students-table">
             <thead>
               <tr>
@@ -62,6 +73,11 @@ export default class StudentsView {
               ${this.renderTableRows(students.filter(s => s.status === 'active'), model)}
             </tbody>
           </table>
+        </div>
+        <div id="students-grid-container" style="display: none; padding: 16px;">
+          <div id="students-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+            ${this.renderCardView(students.filter(s => s.status === 'active'), model)}
+          </div>
         </div>
       </div>
 
@@ -431,6 +447,76 @@ export default class StudentsView {
             </div>
           </td>
         </tr>
+      `;
+    }).join('');
+  }
+
+  static renderCardView(students, model) {
+    if (!students || students.length === 0) {
+      return `<div style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--text3); background: var(--bg-card); border-radius: 8px; border: 1px dashed var(--border);">No students found</div>`;
+    }
+
+    const isGuard = model && model.currentUser && model.currentUser.role === 'guard';
+
+    return students.map(s => {
+      const isActive = s.status === 'active';
+      const isArchived = s.status === 'archived';
+      const statusBadge = isActive ? 'b-active' : (isArchived ? 'b-pending' : 'b-denied');
+      const statusLabel = isActive ? 'Active PGP' : (isArchived ? 'Archived' : escapeHTML(s.status));
+
+      return `
+        <div class="student-card" data-grade="${escapeHTML(s.grade || '')}" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+          <!-- Header: Photo + Info -->
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 16px; flex-shrink: 0;">
+              ${hasPhoto(s.photo) ? `<img src="${escapeHTML(resolvePhotoUrl(s.photo))}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML((s.name || 'U').substring(0, 2).toUpperCase())}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 15px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(s.name)}</div>
+              <div style="font-size: 12px; color: var(--text3); margin-top: 2px;">${escapeHTML(s.studid || s.id)}</div>
+              <div style="margin-top: 6px;"><span class="badge ${statusBadge}">${statusLabel}</span></div>
+            </div>
+          </div>
+          
+          <!-- Details -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; background: var(--bg-body); padding: 10px; border-radius: 8px;">
+            <div>
+              <div style="color: var(--text3); margin-bottom: 2px; font-weight: 500;">Grade Level</div>
+              <div style="font-weight: 600; color: var(--text);">${escapeHTML(s.grade || '—')}</div>
+            </div>
+            <div>
+              <div style="color: var(--text3); margin-bottom: 2px; font-weight: 500;">Gate</div>
+              <div style="font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(s.preferredGate || '—')}</div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <div style="color: var(--text3); margin-bottom: 2px; font-weight: 500;">Guardian</div>
+              <div style="font-weight: 600; color: var(--text); display: flex; justify-content: space-between;">
+                <span>${escapeHTML(s.parentName || '—')}</span>
+                <span style="color: var(--primary); font-weight: 500;">${escapeHTML(s.parentEmail || '')}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; border-top: 1px solid var(--border); padding-top: 12px;">
+            <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" title="View ID Card" style="flex: 1; justify-content: center; background: var(--bg-body);">
+              ${Icons['eye'](14)} View ID
+            </button>
+            ${!isGuard ? `
+            <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" title="Edit Student" style="color: var(--primary); background: var(--primary-soft);">
+              ${Icons['edit'](14)}
+            </button>
+            ${isActive ? `
+            <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" title="Archive Student" style="color: var(--orange); background: rgba(245, 158, 11, 0.1);">
+              ${Icons['archive'](14)}
+            </button>` : ''}
+            ${isArchived ? `
+            <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" title="Restore Student" style="color: var(--green); background: rgba(16, 185, 129, 0.1);">
+              ${Icons['check-circle'](14)}
+            </button>` : ''}
+            ` : ''}
+          </div>
+        </div>
       `;
     }).join('');
   }

@@ -56,6 +56,38 @@ export default class SettingsView {
             </div>
           </div>
         </div>
+
+        ${model.currentUser?.role === 'admin' ? `
+        <!-- Pass ID Management (Admin Only) -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Pass ID Management</div>
+              <div class="card-sub">Fix or regenerate student Pass IDs to the standardized format (26A07-001)</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; margin-bottom: 16px;">
+              <div style="font-size: 13px; font-weight: 600; color: var(--primary); margin-bottom: 6px;">How it works</div>
+              <ul style="font-size: 12px; color: var(--text2); margin: 0; padding-left: 18px; line-height: 1.8;">
+                <li>Scans all students for IDs that <strong>don't match</strong> the new format (<code>26A07-001</code>)</li>
+                <li>Generates a new PGP ID based on each student's <strong>grade</strong> and <strong>section</strong></li>
+                <li>Updates both the local cache <strong>and</strong> the Google Sheet</li>
+                <li>All QR codes will automatically match the new IDs</li>
+              </ul>
+            </div>
+            <div id="regen-status" style="display: none; margin-bottom: 12px;"></div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn btn-ghost" id="btn-preview-regen" style="justify-content: center;">
+                ${Icons['scan-line'](16)} Preview Old IDs
+              </button>
+              <button class="btn btn-primary" id="btn-regen-ids" style="justify-content: center;" disabled>
+                ${Icons['settings-gear'](16)} Regenerate All Pass IDs
+              </button>
+            </div>
+          </div>
+        </div>
+        ` : ''}
       </div>
     `;
   }

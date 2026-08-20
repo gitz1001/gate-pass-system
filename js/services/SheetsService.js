@@ -3,7 +3,7 @@
 // All network calls to the Apps Script Web App go through here.
 // ════════════════════════════════════════════════════════════════
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzgwT0E6lmE0xJ2wi_cbuA70BeiiCp7zoZZMVmr2xXBJ6soOEHY7hOESV1jMYpxsPevIA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwqkZ6mIwsa68m13pGMVcg_MFSL_b9pPUSzJ6xJ_JqsdW2oVKr_iVv6Xr5jm9CY1_HQ4Q/exec';
 
 export default class SheetsService {
 
