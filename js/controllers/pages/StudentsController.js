@@ -1,5 +1,6 @@
 import { escapeHTML, compressImage, resolvePhotoUrl, hasPhoto, generatePGP } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
+import Icons from '../../icons.js';
 
 export default class StudentsController {
   static bind(controller) {
@@ -19,6 +20,16 @@ export default class StudentsController {
     if (btnClose && wizardModal) {
       btnClose.addEventListener('click', () => { wizardModal.style.display = 'none'; });
     }
+
+    // Close any modal when clicking outside of it (on the overlay)
+    document.querySelectorAll('.overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.style.display = 'none';
+        }
+      });
+    });
+
     const btnNext = document.getElementById('btn-wizard-next');
     const btnPrev = document.getElementById('btn-wizard-prev');
     const btnSubmit = document.getElementById('btn-wizard-submit');
@@ -109,6 +120,13 @@ export default class StudentsController {
     }
 
     const btnSaveEdit = document.getElementById('btn-save-edit');
+    const editModal = document.getElementById('modal-edit-student');
+    const btnCloseEdit = document.getElementById('btn-close-edit');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+
+    if (btnCloseEdit && editModal) btnCloseEdit.addEventListener('click', () => editModal.style.display = 'none');
+    if (btnCancelEdit && editModal) btnCancelEdit.addEventListener('click', (e) => { e.preventDefault(); editModal.style.display = 'none'; });
+
     if (btnSaveEdit) {
       btnSaveEdit.addEventListener('click', async () => {
         const id = document.getElementById('edit-id').value;
@@ -219,6 +237,7 @@ export default class StudentsController {
     StudentsController.bindIdCard(controller);
     StudentsController.bindCSVImport(controller);
     StudentsController.bindExportAll(controller);
+    StudentsController.bindRowActionsOnly(controller);
     const searchIn = document.getElementById('students-search');
     if (searchIn) {
       searchIn.addEventListener('input', () => {
@@ -290,7 +309,7 @@ export default class StudentsController {
     document.querySelectorAll('.btn-archive-student').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
+        const student = controller.model.students.find(s => String(s.id) === String(id));
         if (!student) return;
         const confirmed = await Dialog.confirm(
           'Archive Student',
@@ -308,7 +327,7 @@ export default class StudentsController {
     document.querySelectorAll('.btn-restore-student').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
+        const student = controller.model.students.find(s => String(s.id) === String(id));
         if (!student) return;
         const confirmed = await Dialog.confirm(
           'Restore Student',
@@ -326,7 +345,7 @@ export default class StudentsController {
     document.querySelectorAll('.btn-edit-student').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
+        const student = controller.model.students.find(s => String(s.id) === String(id));
         const editModal = document.getElementById('modal-edit-student');
         if (!student || !editModal) return;
 
@@ -359,7 +378,7 @@ export default class StudentsController {
     document.querySelectorAll('.btn-view-id').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
-        const student = controller.model.students.find(s => s.id === id);
+        const student = controller.model.students.find(s => String(s.id) === String(id));
         if (!student) return;
         const target = document.getElementById('idcard-render-target');
         const photoHtml = hasPhoto(student.photo)
@@ -626,8 +645,14 @@ export default class StudentsController {
 
         let imported = 0;
         let skipped = 0;
+        const totalRows = dataRows.length;
+        
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `Importing... 0%`;
 
+        let currentIndex = 0;
         for (const row of dataRows) {
+          currentIndex++;
           const name = row[nameIdx]?.trim();
           const studid = row[studidIdx]?.trim();
           const grade = row[gradeIdx]?.trim();
@@ -664,9 +689,14 @@ export default class StudentsController {
           // Add a short delay to prevent Google Apps Script rate limits on bulk upload
           await new Promise(resolve => setTimeout(resolve, 500));
           imported++;
+          
+          const percent = Math.round((currentIndex / totalRows) * 100);
+          btnSubmit.innerHTML = `Importing... ${percent}%`;
         }
 
         modal.style.display = 'none';
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `${Icons['upload'](14)} Import Students`;
         controller.view.showToast(`Imported ${imported} student(s). ${skipped > 0 ? `${skipped} skipped (duplicate or incomplete).` : ''}`);
         controller.navigateToPage('students');
       });

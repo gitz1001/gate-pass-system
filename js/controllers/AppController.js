@@ -314,6 +314,11 @@ export default class AppController {
 
     // Navigation Delegation (Sidebar & Bottom Nav)
     document.addEventListener('click', (e) => {
+      // Close Modals when clicking on the overlay background
+      if (e.target.classList.contains('overlay')) {
+        e.target.style.display = 'none';
+      }
+
       const navItem = e.target.closest('.nav-item, .bottom-nav-item');
       if (navItem) {
         const pageId = navItem.dataset.page;
