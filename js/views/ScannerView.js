@@ -5,8 +5,31 @@ export default class ScannerView {
   static render(model) {
     const todayLogs = (model.exitLogs || []).filter(l => l.timestamp && l.timestamp.startsWith(new Date().toLocaleDateString('en-CA')));
     const userGate = model.currentUser?.gate || 'Gate 1';
+    
+    const scansCount = todayLogs.length;
+    const grantedCount = todayLogs.filter(l => l.result === 'granted').length;
+    const deniedCount = todayLogs.filter(l => l.result === 'denied').length;
 
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-icon">${Icons['scan-line'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${scansCount}</div><div class="kpi-lbl">Today's Scans</div></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['check-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${grantedCount}</div><div class="kpi-lbl">Granted</div></div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">${Icons['x-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${deniedCount}</div><div class="kpi-lbl">Denied</div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">${Icons['door-open'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${escapeHTML(userGate)}</div><div class="kpi-lbl">Current Gate</div></div>
+        </div>
+      </div>
+
       <div class="scanner-grid" style="align-items: start;">
         
         <!-- Scanner Main Area -->
@@ -18,9 +41,17 @@ export default class ScannerView {
               </div>
               <div class="card-sub">Scan ID or enter pass number manually</div>
             </div>
-            
-            <div class="form-group" style="width: 180px; margin: 0;">
-              <select id="scan-gate" class="form-input" ${model.currentUser?.role === 'guard' ? 'disabled style="opacity:0.7;cursor:not-allowed;"' : ''}>
+
+          </div>
+
+          <!-- Gate Banner -->
+          <div class="gate-banner">
+            <div class="gate-banner-title">
+              ${Icons['door-open'](32)}
+              <span id="gate-banner-text">${escapeHTML(userGate.toUpperCase())}</span>
+            </div>
+            <div class="form-group" style="width: 160px; margin: 0;">
+              <select id="scan-gate" class="form-input" style="background: rgba(255,255,255,0.9); border: none; font-weight: 600;" ${model.currentUser?.role === 'guard' ? 'disabled' : ''}>
                 <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
                 <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
                 <option value="College Gate" ${userGate === 'College Gate' ? 'selected' : ''}>College Gate</option>
@@ -29,17 +60,17 @@ export default class ScannerView {
           </div>
 
           <!-- Tabs -->
-          <div style="display: flex; border-bottom: 1px solid var(--border); padding: 0 16px;">
-            <button class="scan-tab" data-target="usb" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px;">
-              ${Icons['usb'](16)} USB Scanner
+          <div style="display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; overflow-x: auto;">
+            <button class="scan-tab active" data-target="camera" style="padding: 12px 16px; background: none; border: none; font-weight: 600; color: var(--primary); border-bottom: 2px solid var(--primary); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+              ${Icons['camera'](16)} QR Scan
             </button>
-            <button class="scan-tab" data-target="manual" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px;">
+            <button class="scan-tab" data-target="manual" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
               ${Icons['file-text'](16)} Manual Input
             </button>
-            <button class="scan-tab active" data-target="camera" style="padding: 12px 16px; background: none; border: none; font-weight: 600; color: var(--primary); border-bottom: 2px solid var(--primary); display: flex; align-items: center; gap: 6px;">
-              ${Icons['camera'](16)} Camera
+            <button class="scan-tab" data-target="usb" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+              ${Icons['usb'](16)} USB Scanner
             </button>
-            <button class="scan-tab" data-target="facescan" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px;">
+            <button class="scan-tab" data-target="facescan" style="padding: 12px 16px; background: none; border: none; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
               ${Icons['face-scan'](16)} Face Scan
             </button>
           </div>

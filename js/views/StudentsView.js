@@ -4,11 +4,32 @@ import { escapeHTML, resolvePhotoUrl, hasPhoto } from '../utils.js';
 export default class StudentsView {
   static render(model) {
     const students = model.students || [];
-    const grades = ['All', '7th Grade', '8th Grade', '9th Grade', '10th Grade', '11th Grade', '12th Grade'];
+    const grades = ['All', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
     const activeCount = students.filter(s => s.status === 'active').length;
     const archivedCount = students.filter(s => s.status === 'archived').length;
+    const withPhotosCount = students.filter(s => hasPhoto(s.photo)).length;
+    const withoutPGPCount = students.filter(s => !s.pgp).length;
 
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['users'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${activeCount}</div><div class="kpi-lbl">Total Active</div></div>
+        </div>
+        <div class="kpi-card kpi-orange">
+          <div class="kpi-icon">${Icons['archive'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${archivedCount}</div><div class="kpi-lbl">Archived</div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">${Icons['camera'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${withPhotosCount}</div><div class="kpi-lbl">With Photos</div></div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">${Icons['alert-triangle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${withoutPGPCount}</div><div class="kpi-lbl">Without PGP</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <div>
@@ -79,6 +100,15 @@ export default class StudentsView {
             ${this.renderCardView(students.filter(s => s.status === 'active'), model)}
           </div>
         </div>
+        
+        <!-- Pagination Footer -->
+        <div id="students-pagination" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-card); border-radius: 0 0 var(--radius) var(--radius);">
+          <div style="font-size: 12px; color: var(--text2);" id="pagination-info">Loading...</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-ghost btn-sm" id="btn-page-prev" disabled>Previous</button>
+            <button class="btn btn-ghost btn-sm" id="btn-page-next" disabled>Next</button>
+          </div>
+        </div>
       </div>
 
       <!-- Add Student Wizard Modal -->
@@ -112,13 +142,15 @@ export default class StudentsView {
               <!-- Step 1: Identity -->
               <div class="wizard-panel" id="panel-step-1" style="display: block;">
                 <div class="form-grid mb-12">
-                  <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="w-name" class="form-input" required placeholder="Lastname, Firstname">
+                  <div class="form-group required">
+                    <label for="w-name">Full Name</label>
+                    <input type="text" id="w-name" class="form-input" required placeholder="Lastname, Firstname" maxlength="100">
+                    <div class="form-error" id="err-w-name"></div>
                   </div>
-                  <div class="form-group">
-                    <label>Student ID</label>
-                    <input type="text" id="w-studid" class="form-input" required placeholder="e.g. 23-1234">
+                  <div class="form-group required">
+                    <label for="w-studid">Student ID</label>
+                    <input type="text" id="w-studid" class="form-input" required placeholder="e.g. 23-1234" maxlength="20">
+                    <div class="form-error" id="err-w-studid"></div>
                   </div>
                 </div>
                 <div class="form-group">
@@ -135,17 +167,18 @@ export default class StudentsView {
               <!-- Step 2: Academic & Exit -->
               <div class="wizard-panel" id="panel-step-2" style="display: none;">
                 <div class="form-grid mb-12">
-                  <div class="form-group">
-                    <label>Grade Level</label>
+                  <div class="form-group required">
+                    <label for="w-grade">Grade Level</label>
                     <select id="w-grade" class="form-input" required>
                       <option value="">Select Grade</option>
-                      <option value="7th Grade">7th Grade</option>
-                      <option value="8th Grade">8th Grade</option>
-                      <option value="9th Grade">9th Grade</option>
-                      <option value="10th Grade">10th Grade</option>
-                      <option value="11th Grade">11th Grade</option>
-                      <option value="12th Grade">12th Grade</option>
+                      <option value="Grade 7">Grade 7</option>
+                      <option value="Grade 8">Grade 8</option>
+                      <option value="Grade 9">Grade 9</option>
+                      <option value="Grade 10">Grade 10</option>
+                      <option value="Grade 11">Grade 11</option>
+                      <option value="Grade 12">Grade 12</option>
                     </select>
+                    <div class="form-error" id="err-w-grade"></div>
                   </div>
                   <div class="form-group">
                     <label>Preferred Gate</label>
@@ -181,18 +214,21 @@ export default class StudentsView {
 
               <!-- Step 3: Guardian -->
               <div class="wizard-panel" id="panel-step-3" style="display: none;">
-                <div class="form-group mb-12">
-                  <label>Guardian Name</label>
-                  <input type="text" id="w-parent-name" class="form-input" required placeholder="Mr. / Mrs. Name">
+                <div class="form-group required mb-12">
+                  <label for="w-parent-name">Guardian Name</label>
+                  <input type="text" id="w-parent-name" class="form-input" required placeholder="Mr. / Mrs. Name" maxlength="100">
+                  <div class="form-error" id="err-w-parent-name"></div>
                 </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label>Guardian Email</label>
+                  <div class="form-group required">
+                    <label for="w-parent-email">Guardian Email</label>
                     <input type="email" id="w-parent-email" class="form-input" required placeholder="Used for exit alerts">
+                    <div class="form-error" id="err-w-parent-email"></div>
                   </div>
                   <div class="form-group">
-                    <label>Mobile Number (Optional)</label>
-                    <input type="text" id="w-parent-phone" class="form-input" placeholder="09XX XXX XXXX">
+                    <label for="w-parent-phone">Mobile Number (Optional)</label>
+                    <input type="text" id="w-parent-phone" class="form-input" placeholder="09XX XXX XXXX" maxlength="13">
+                    <div class="form-error" id="err-w-parent-phone"></div>
                   </div>
                 </div>
               </div>
@@ -297,13 +333,15 @@ export default class StudentsView {
               
               <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Identity</div>
               <div class="form-grid mb-12">
-                <div class="form-group">
-                  <label>Full Name</label>
-                  <input type="text" id="edit-name" class="form-input" required>
+                <div class="form-group required">
+                  <label for="edit-name">Full Name</label>
+                  <input type="text" id="edit-name" class="form-input" required maxlength="100">
+                  <div class="form-error" id="err-edit-name"></div>
                 </div>
-                <div class="form-group">
-                  <label>Student ID</label>
-                  <input type="text" id="edit-studid" class="form-input" required>
+                <div class="form-group required">
+                  <label for="edit-studid">Student ID</label>
+                  <input type="text" id="edit-studid" class="form-input" required maxlength="20">
+                  <div class="form-error" id="err-edit-studid"></div>
                 </div>
               </div>
               <div class="form-group mb-12">
@@ -318,17 +356,18 @@ export default class StudentsView {
 
               <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Academic & Exit</div>
               <div class="form-grid mb-12">
-                <div class="form-group">
-                  <label>Grade Level</label>
+                <div class="form-group required">
+                  <label for="edit-grade">Grade Level</label>
                   <select id="edit-grade" class="form-input" required>
                     <option value="">Select Grade</option>
-                    <option value="7th Grade">7th Grade</option>
-                    <option value="8th Grade">8th Grade</option>
-                    <option value="9th Grade">9th Grade</option>
-                    <option value="10th Grade">10th Grade</option>
-                    <option value="11th Grade">11th Grade</option>
-                    <option value="12th Grade">12th Grade</option>
+                    <option value="Grade 7">Grade 7</option>
+                    <option value="Grade 8">Grade 8</option>
+                    <option value="Grade 9">Grade 9</option>
+                    <option value="Grade 10">Grade 10</option>
+                    <option value="Grade 11">Grade 11</option>
+                    <option value="Grade 12">Grade 12</option>
                   </select>
+                  <div class="form-error" id="err-edit-grade"></div>
                 </div>
                 <div class="form-group">
                   <label>Preferred Gate</label>
@@ -365,18 +404,21 @@ export default class StudentsView {
 
               <div style="font-weight: 700; font-size: 13px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Guardian</div>
               <div class="form-grid mb-12">
-                <div class="form-group">
-                  <label>Guardian Name</label>
-                  <input type="text" id="edit-parent-name" class="form-input" required>
+                <div class="form-group required">
+                  <label for="edit-parent-name">Guardian Name</label>
+                  <input type="text" id="edit-parent-name" class="form-input" required maxlength="100">
+                  <div class="form-error" id="err-edit-parent-name"></div>
                 </div>
-                <div class="form-group">
-                  <label>Guardian Email</label>
+                <div class="form-group required">
+                  <label for="edit-parent-email">Guardian Email</label>
                   <input type="email" id="edit-parent-email" class="form-input" required>
+                  <div class="form-error" id="err-edit-parent-email"></div>
                 </div>
               </div>
               <div class="form-group">
-                <label>Mobile Number</label>
-                <input type="text" id="edit-parent-phone" class="form-input" placeholder="09XX XXX XXXX">
+                <label for="edit-parent-phone">Mobile Number</label>
+                <input type="text" id="edit-parent-phone" class="form-input" placeholder="09XX XXX XXXX" maxlength="13">
+                <div class="form-error" id="err-edit-parent-phone"></div>
               </div>
             </form>
           </div>
@@ -391,7 +433,13 @@ export default class StudentsView {
 
   static renderTableRows(students, model) {
     if (!students || students.length === 0) {
-      return `<tr><td colspan="5" class="empty">No students found</td></tr>`;
+      return `<tr><td colspan="5" class="empty">
+        <div class="empty-state">
+          ${Icons['users'](48)}
+          <div class="empty-state-title">No Students Found</div>
+          <div class="empty-state-sub">There are no students matching the current filters or no students have been enrolled yet.</div>
+        </div>
+      </td></tr>`;
     }
 
     const isGuard = model && model.currentUser && model.currentUser.role === 'guard';
@@ -428,19 +476,19 @@ export default class StudentsView {
           </td>
           <td>
             <div class="flex gap-4">
-              <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" title="View ID Card">
+              <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" data-tooltip="View ID Card">
                 ${Icons['eye'](14)}
               </button>
               ${!isGuard ? `
-              <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" title="Edit Student" style="color: var(--primary);">
+              <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" data-tooltip="Edit Student" style="color: var(--primary);">
                 ${Icons['edit'](14)}
               </button>
               ${isActive ? `
-              <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" title="Archive Student" style="color: var(--orange);">
+              <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" data-tooltip="Archive Student" style="color: var(--orange);">
                 ${Icons['archive'](14)}
               </button>` : ''}
               ${isArchived ? `
-              <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" title="Restore Student" style="color: var(--green);">
+              <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" data-tooltip="Restore Student" style="color: var(--green);">
                 ${Icons['check-circle'](14)}
               </button>` : ''}
               ` : ''}
@@ -453,7 +501,13 @@ export default class StudentsView {
 
   static renderCardView(students, model) {
     if (!students || students.length === 0) {
-      return `<div style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--text3); background: var(--bg-card); border-radius: 8px; border: 1px dashed var(--border);">No students found</div>`;
+      return `<div style="grid-column: 1 / -1;" class="empty">
+        <div class="empty-state">
+          ${Icons['users'](48)}
+          <div class="empty-state-title">No Students Found</div>
+          <div class="empty-state-sub">There are no students matching the current filters or no students have been enrolled yet.</div>
+        </div>
+      </div>`;
     }
 
     const isGuard = model && model.currentUser && model.currentUser.role === 'guard';
@@ -499,19 +553,19 @@ export default class StudentsView {
           
           <!-- Actions -->
           <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; border-top: 1px solid var(--border); padding-top: 12px;">
-            <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" title="View ID Card" style="flex: 1; justify-content: center; background: var(--bg-body);">
+            <button class="btn btn-ghost btn-sm btn-view-id" data-id="${s.id}" data-tooltip="View ID Card" style="flex: 1; justify-content: center; background: var(--bg-body);">
               ${Icons['eye'](14)} View ID
             </button>
             ${!isGuard ? `
-            <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" title="Edit Student" style="color: var(--primary); background: var(--primary-soft);">
+            <button class="btn btn-ghost btn-sm btn-edit-student" data-id="${s.id}" data-tooltip="Edit Student" style="color: var(--primary); background: var(--primary-soft);">
               ${Icons['edit'](14)}
             </button>
             ${isActive ? `
-            <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" title="Archive Student" style="color: var(--orange); background: rgba(245, 158, 11, 0.1);">
+            <button class="btn btn-ghost btn-sm btn-archive-student" data-id="${s.id}" data-tooltip="Archive Student" style="color: var(--orange); background: rgba(245, 158, 11, 0.1);">
               ${Icons['archive'](14)}
             </button>` : ''}
             ${isArchived ? `
-            <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" title="Restore Student" style="color: var(--green); background: rgba(16, 185, 129, 0.1);">
+            <button class="btn btn-ghost btn-sm btn-restore-student" data-id="${s.id}" data-tooltip="Restore Student" style="color: var(--green); background: rgba(16, 185, 129, 0.1);">
               ${Icons['check-circle'](14)}
             </button>` : ''}
             ` : ''}

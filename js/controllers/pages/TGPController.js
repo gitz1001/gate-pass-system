@@ -1,5 +1,6 @@
 import { resolvePhotoUrl, hasPhoto, escapeHTML } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
+import { setButtonLoading } from '../../views/AppView.js';
 
 export default class TGPController {
   static bind(controller) {
@@ -33,11 +34,18 @@ export default class TGPController {
           createdAt: new Date().toISOString()
         };
 
-        await controller.model.addTGP(newTGP);
-        controller.view.showToast('TGP Request Submitted');
-        modal.style.display = 'none';
-        form.reset();
-        controller.navigateToPage('tgp');
+        const btnSubmit = document.getElementById('btn-submit-tgp');
+        setButtonLoading(btnSubmit, true);
+
+        try {
+          await controller.model.addTGP(newTGP);
+          controller.view.showToast('TGP Request Submitted');
+          modal.style.display = 'none';
+          form.reset();
+          controller.navigateToPage('tgp');
+        } finally {
+          setButtonLoading(btnSubmit, false);
+        }
       });
     }
 

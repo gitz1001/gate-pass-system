@@ -6,7 +6,35 @@ export default class LogsView {
     const logs = model.exitLogs || [];
     const userGate = model.currentUser?.gate || 'all';
     
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const todayLogs = logs.filter(l => l.timestamp && l.timestamp.startsWith(todayStr));
+    const grantedLogs = logs.filter(l => l.result === 'granted');
+    const grantRate = logs.length > 0 ? ((grantedLogs.length / logs.length) * 100).toFixed(1) + '%' : '0%';
+    
+    const gateCounts = {};
+    logs.forEach(l => { if (l.gate) gateCounts[l.gate] = (gateCounts[l.gate] || 0) + 1; });
+    const mostActiveGate = Object.keys(gateCounts).sort((a, b) => gateCounts[b] - gateCounts[a])[0] || 'None';
+
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-icon">${Icons['file-text'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${logs.length}</div><div class="kpi-lbl">Total Records</div></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['door-open'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${todayLogs.length}</div><div class="kpi-lbl">Today's Exits</div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">${Icons['check-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${grantRate}</div><div class="kpi-lbl">Grant Rate</div></div>
+        </div>
+        <div class="kpi-card kpi-orange">
+          <div class="kpi-icon">${Icons['bar-chart'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${escapeHTML(mostActiveGate)}</div><div class="kpi-lbl">Most Active Gate</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <div>
@@ -78,13 +106,28 @@ export default class LogsView {
             </tbody>
           </table>
         </div>
+        
+        <!-- Pagination Footer -->
+        <div id="logs-pagination" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-card); border-radius: 0 0 var(--radius) var(--radius);">
+          <div style="font-size: 12px; color: var(--text2);" id="pagination-info">Loading...</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-ghost btn-sm" id="btn-page-prev" disabled>Previous</button>
+            <button class="btn btn-ghost btn-sm" id="btn-page-next" disabled>Next</button>
+          </div>
+        </div>
       </div>
     `;
   }
 
   static renderTableRows(logs, model) {
     if (!logs || logs.length === 0) {
-      return `<tr><td colspan="5" class="empty">No logs available</td></tr>`;
+      return `<tr><td colspan="5" class="empty">
+        <div class="empty-state">
+          ${Icons['clock'] ? Icons['clock'](48) : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>'}
+          <div class="empty-state-title">No Scan Logs</div>
+          <div class="empty-state-sub">There are no exit logs recorded yet or matching your current filters.</div>
+        </div>
+      </td></tr>`;
     }
 
     return logs.map(log => {

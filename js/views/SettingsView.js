@@ -89,6 +89,28 @@ export default class SettingsView {
         </div>
         ` : ''}
       </div>
+
+      <!-- About / Version -->
+      <div class="card" style="max-width: 100%; margin-top: 24px;">
+        <div class="card-head">
+          <div>
+            <div class="card-title">About e-gatepass</div>
+            <div class="card-sub">System Version and Information</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 48px; height: 48px; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 4px; border: 1px solid var(--border);">
+              <img src="logo.png" alt="SISC" style="width:100%;height:100%;object-fit:contain;">
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 700; color: var(--text);">e-gatepass System</div>
+              <div style="font-size: 13px; color: var(--text2); font-weight: 600;">Version 30 (Production)</div>
+              <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">&copy; 2026 Southville International School and Colleges</div>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
   }
 }

@@ -1,4 +1,5 @@
 import Dialog from '../../services/Dialog.js';
+import { debounce } from '../../utils.js';
 
 export default class PGPController {
   static bind(controller) {
@@ -23,15 +24,17 @@ export default class PGPController {
       });
     };
 
+    const debouncedFilter = debounce(filterTable, 250);
+
     pills.forEach(pill => {
       pill.addEventListener('click', (e) => {
         pills.forEach(p => p.classList.remove('on'));
         e.currentTarget.classList.add('on');
-        filterTable();
+        filterTable(); // Instant response for pills
       });
     });
 
-    if (searchIn) searchIn.addEventListener('input', filterTable);
+    if (searchIn) searchIn.addEventListener('input', debouncedFilter);
 
     // Status Updates
     document.querySelectorAll('.btn-status-update').forEach(btn => {

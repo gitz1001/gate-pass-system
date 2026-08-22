@@ -10,8 +10,28 @@ export default class PGPView {
     const activeCount = passes.filter(p => p.status === 'active').length;
     const suspendedCount = passes.filter(p => p.status === 'suspended').length;
     const revokedCount = passes.filter(p => p.status === 'revoked').length;
+    const complianceRate = passes.length > 0 ? ((activeCount / passes.length) * 100).toFixed(1) + '%' : '0%';
 
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['check-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${activeCount}</div><div class="kpi-lbl">Active Passes</div></div>
+        </div>
+        <div class="kpi-card kpi-orange">
+          <div class="kpi-icon">${Icons['alert-triangle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${suspendedCount}</div><div class="kpi-lbl">Suspended</div></div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">${Icons['x-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${revokedCount}</div><div class="kpi-lbl">Revoked</div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">${Icons['shield-check'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${complianceRate}</div><div class="kpi-lbl">Compliance Rate</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <div>
@@ -54,7 +74,13 @@ export default class PGPView {
 
   static renderTableRows(passes) {
     if (!passes || passes.length === 0) {
-      return `<tr><td colspan="5" class="empty">No permanent passes found</td></tr>`;
+      return `<tr><td colspan="5" class="empty">
+        <div class="empty-state">
+          ${Icons['id-card'](48)}
+          <div class="empty-state-title">No Permanent Passes</div>
+          <div class="empty-state-sub">There are no permanent passes matching the current filters.</div>
+        </div>
+      </td></tr>`;
     }
 
     return passes.map(p => {
@@ -94,14 +120,14 @@ export default class PGPView {
           <td>
             <div class="flex gap-8">
               ${p.status === 'active' ? `
-                <button class="btn btn-ghost btn-sm btn-status-update" data-id="${p.id}" data-action="suspended" title="Suspend Pass">
+                <button class="btn btn-ghost btn-sm btn-status-update" data-id="${p.id}" data-action="suspended" data-tooltip="Suspend Pass">
                   Suspend
                 </button>
-                <button class="btn btn-danger btn-sm btn-status-update" data-id="${p.id}" data-action="revoked" title="Revoke Pass">
+                <button class="btn btn-danger btn-sm btn-status-update" data-id="${p.id}" data-action="revoked" data-tooltip="Revoke Pass">
                   Revoke
                 </button>
               ` : `
-                <button class="btn btn-primary btn-sm btn-status-update" data-id="${p.id}" data-action="active" title="Reactivate Pass">
+                <button class="btn btn-primary btn-sm btn-status-update" data-id="${p.id}" data-action="active" data-tooltip="Reactivate Pass">
                   Reactivate
                 </button>
               `}

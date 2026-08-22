@@ -7,8 +7,31 @@ export default class TGPView {
     
     // Sort so most recent is first
     const sortedTgps = [...tgps].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    const pendingCount = tgps.filter(t => t.status === 'pending').length;
+    const approvedCount = tgps.filter(t => t.status === 'approved').length;
+    const rejectedCount = tgps.filter(t => t.status === 'rejected').length;
 
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-icon">${Icons['file-text'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${tgps.length}</div><div class="kpi-lbl">Total TGPs</div></div>
+        </div>
+        <div class="kpi-card kpi-yellow">
+          <div class="kpi-icon">${Icons['clock'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${pendingCount}</div><div class="kpi-lbl">Pending</div></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['check-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${approvedCount}</div><div class="kpi-lbl">Approved</div></div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">${Icons['x-circle'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${rejectedCount}</div><div class="kpi-lbl">Rejected</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <div>
@@ -65,8 +88,8 @@ export default class TGPView {
             </div>
 
             <form id="form-tgp">
-              <div class="form-group mb-12">
-                <label>Select Student</label>
+              <div class="form-group required mb-12">
+                <label for="tgp-student">Select Student</label>
                 <select id="tgp-student" class="form-input" required>
                   <option value="">-- Choose a Student --</option>
                   ${(model.students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('')}
@@ -74,12 +97,12 @@ export default class TGPView {
               </div>
 
               <div class="grid-2 mb-12">
-                <div class="form-group">
-                  <label>Valid For Date</label>
+                <div class="form-group required">
+                  <label for="tgp-date">Valid For Date</label>
                   <input type="date" id="tgp-date" class="form-input" required min="${new Date().toLocaleDateString('en-CA')}">
                 </div>
-                <div class="form-group">
-                  <label>Designated Gate</label>
+                <div class="form-group required">
+                  <label for="tgp-gate">Designated Gate</label>
                   <select id="tgp-gate" class="form-input" required>
                     <option value="Gate 1">Gate 1</option>
                     <option value="Gate 2">Gate 2</option>
@@ -88,13 +111,13 @@ export default class TGPView {
                 </div>
               </div>
 
-              <div class="form-group mb-12">
-                <label>Reason for Temporary Exit</label>
+              <div class="form-group required mb-12">
+                <label for="tgp-reason">Reason for Temporary Exit</label>
                 <textarea id="tgp-reason" class="form-input" rows="3" required placeholder="e.g. Forgotten ID, Medical appointment..."></textarea>
               </div>
               
-              <div class="form-group">
-                <label>Requested By (Parent/Guardian)</label>
+              <div class="form-group required">
+                <label for="tgp-requester">Requested By (Parent/Guardian)</label>
                 <input type="text" id="tgp-requester" class="form-input" required placeholder="Name of parent or guardian">
               </div>
             </form>
@@ -133,7 +156,13 @@ export default class TGPView {
 
   static renderTableRows(tgps, model) {
     if (!tgps || tgps.length === 0) {
-      return `<tr><td colspan="6" class="empty">No temporary passes found</td></tr>`;
+      return `<tr><td colspan="6" class="empty">
+        <div class="empty-state">
+          ${Icons['file-text'] ? Icons['file-text'](48) : Icons['id-card'](48)}
+          <div class="empty-state-title">No Temporary Passes</div>
+          <div class="empty-state-sub">There are no temporary gate passes requested or matching the current filters.</div>
+        </div>
+      </td></tr>`;
     }
 
     return tgps.map(t => {
@@ -170,14 +199,14 @@ export default class TGPView {
           <td>
             <div class="flex gap-8">
               ${t.status === 'pending' ? `
-                <button class="btn btn-primary btn-sm btn-tgp-action" data-id="${t.id}" data-action="approved" title="Approve">
+                <button class="btn btn-primary btn-sm btn-tgp-action" data-id="${t.id}" data-action="approved" data-tooltip="Approve">
                   ${Icons['check-circle'](14)}
                 </button>
-                <button class="btn btn-danger btn-sm btn-tgp-action" data-id="${t.id}" data-action="rejected" title="Reject">
+                <button class="btn btn-danger btn-sm btn-tgp-action" data-id="${t.id}" data-action="rejected" data-tooltip="Reject">
                   ${Icons['x-circle'](14)}
                 </button>
               ` : t.status === 'approved' ? `
-                <button class="btn btn-ghost btn-sm btn-view-tgp" data-id="${t.id}" title="View TGP Card">
+                <button class="btn btn-ghost btn-sm btn-view-tgp" data-id="${t.id}" data-tooltip="View TGP Card">
                   ${Icons['id-card'](14)} View Pass
                 </button>
               ` : `

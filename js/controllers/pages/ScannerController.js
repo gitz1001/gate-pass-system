@@ -95,5 +95,14 @@ export default class ScannerController {
         controller.startFaceCamera('enroll');
       });
     }
+
+    // Gate Selector Text Update
+    const gateSelect = document.getElementById('scan-gate');
+    const gateBannerText = document.getElementById('gate-banner-text');
+    if (gateSelect && gateBannerText) {
+      gateSelect.addEventListener('change', (e) => {
+        gateBannerText.textContent = e.target.value.toUpperCase();
+      });
+    }
   }
 }

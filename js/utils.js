@@ -8,6 +8,31 @@ export function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 
+export async function hashPassword(message) {
+  const msgUint8 = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Creates a debounced function that delays invoking func until after wait milliseconds.
+ * @param {Function} func 
+ * @param {number} wait 
+ * @returns {Function}
+ */
+export function debounce(func, wait = 300) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 export function compressImage(file, maxWidth = 250, maxHeight = 250, quality = 0.7) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

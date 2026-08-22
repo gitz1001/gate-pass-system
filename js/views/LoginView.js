@@ -6,8 +6,8 @@ export default class LoginView {
       <div style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 100px); padding: 20px;">
         <div class="card" style="max-width: 400px; width: 100%;">
           <div style="background: var(--primary); padding: 30px 20px; text-align: center; color: #fff;">
-            <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; background: rgba(255,255,255,0.1); border-radius: 16px; margin-bottom: 16px;">
-              ${Icons['shield-check'](32)}
+            <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; background: rgba(255,255,255,1); border-radius: 16px; margin-bottom: 16px; padding: 6px;">
+              <img src="logo.png" alt="SISC" style="width:100%;height:100%;object-fit:contain;">
             </div>
             <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">e-gatepass</h2>
             <div style="font-size: 13px; opacity: 0.8; margin-top: 5px;">Authorization Required</div>

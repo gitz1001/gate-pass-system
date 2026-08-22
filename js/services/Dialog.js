@@ -66,6 +66,23 @@ export default class Dialog {
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeDialog(false);
       });
+
+      // Keyboard: Escape to cancel, Enter to confirm
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); closeDialog(false); }
+        if (e.key === 'Enter') { e.preventDefault(); closeDialog(true); }
+      };
+      document.addEventListener('keydown', keyHandler);
+      // Cleanup listener when dialog closes (patch into closeDialog)
+      const origClose = closeDialog;
+      const closeDialogWithCleanup = (result) => {
+        document.removeEventListener('keydown', keyHandler);
+        origClose(result);
+      };
+      // Re-bind buttons to use cleanup version
+      overlay.querySelector('#dlg-cancel').onclick = () => closeDialogWithCleanup(false);
+      overlay.querySelector('#dlg-confirm').onclick = () => closeDialogWithCleanup(true);
+      overlay.onclick = (e) => { if (e.target === overlay) closeDialogWithCleanup(false); };
     });
   }
 

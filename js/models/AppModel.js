@@ -1,5 +1,5 @@
 import SheetsService from '../services/SheetsService.js';
-import { uploadPhotoLocally } from '../utils.js';
+import { uploadPhotoLocally, hashPassword } from '../utils.js';
 
 // ════════════════════════════════════════════════════════════════
 // AppModel — Data Layer with Google Sheets + localStorage Cache
@@ -394,8 +394,11 @@ export default class AppModel {
       // users already loaded from localStorage cache
     }
 
+    const hashedPassword = await hashPassword(password);
+    
     const user = this.users.find(u =>
-      u.username === username && u.password === password &&
+      u.username === username && 
+      (u.password === hashedPassword || u.password === password) && // Support transition
       (!u.status || u.status.toLowerCase() === 'active')
     );
 

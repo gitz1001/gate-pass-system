@@ -143,12 +143,24 @@ export default class AppView {
     const allItems = NAV_SECTIONS.flatMap(s => s.items).filter(item => permissions.includes(item.id));
     const mobileItems = allItems.slice(0, 4);
 
-    inner.innerHTML = mobileItems.map(item => `
+    let html = mobileItems.map(item => `
       <button class="bottom-nav-item ${this.currentPage === item.id ? 'active' : ''}" data-page="${item.id}">
         ${Icons[item.icon](20)}
         <span>${item.label}</span>
       </button>
     `).join('');
+    
+    // Add "More" button if there are more than 4 items
+    if (allItems.length > 4) {
+      html += `
+        <button class="bottom-nav-item" id="btn-bottom-more">
+          ${Icons['menu'](20)}
+          <span>More</span>
+        </button>
+      `;
+    }
+    
+    inner.innerHTML = html;
   }
 
   // ── Sync UI ───────────────────────────────────────────
@@ -214,7 +226,57 @@ export default class AppView {
 
     // Render page content
     const content = document.getElementById('page-content');
-    if (content) content.innerHTML = this.renderPageContent(pageId, model);
+    if (content) {
+      if (!isLogin && model.syncStatus === 'syncing' && !model.lastSyncTime) {
+        content.innerHTML = this.renderPageSkeleton(pageId);
+      } else {
+        content.innerHTML = this.renderPageContent(pageId, model);
+      }
+    }
+  }
+
+  // ── Page Skeleton ───────────────────────────────────────
+  renderPageSkeleton(pageId) {
+    if (pageId === 'students' || pageId === 'logs' || pageId === 'tgp' || pageId === 'users') {
+      return `
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="skeleton" style="width: 150px; height: 24px; margin-bottom: 4px;"></div>
+              <div class="skeleton" style="width: 100px; height: 16px;"></div>
+            </div>
+          </div>
+          <div style="padding: 16px;">
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+          </div>
+        </div>
+      `;
+    }
+    if (pageId === 'dashboard') {
+      return `
+        <div class="grid-4 mb-20">
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>
+        <div class="grid-2">
+          <div class="skeleton skeleton-card" style="height: 300px;"></div>
+          <div class="skeleton skeleton-card" style="height: 300px;"></div>
+        </div>
+      `;
+    }
+    // Generic fallback skeleton
+    return `
+      <div style="padding: 20px;">
+        <div class="skeleton skeleton-row" style="height: 40px; margin-bottom: 20px;"></div>
+        <div class="skeleton skeleton-card" style="height: 200px;"></div>
+      </div>
+    `;
   }
 
   // ── Page content router ───────────────────────────────
@@ -299,8 +361,13 @@ export default class AppView {
     const root = document.getElementById('toast-root');
     if (!root) return;
 
-    const iconName = type === 'error' ? 'alert-triangle' : 'check-circle';
-    const cssClass = type === 'error' ? 'toast-error' : 'toast-success';
+    const typeMap = {
+      success: { icon: 'check-circle',    css: 'toast-success' },
+      error:   { icon: 'alert-triangle',  css: 'toast-error' },
+      warning: { icon: 'alert-triangle',  css: 'toast-warning' },
+      info:    { icon: 'info',            css: 'toast-info' }
+    };
+    const { icon: iconName, css: cssClass } = typeMap[type] || typeMap.success;
 
     const toast = document.createElement('div');
     toast.className = `toast ${cssClass}`;
@@ -311,3 +378,15 @@ export default class AppView {
 }
 
 export { NAV_SECTIONS, BOTTOM_NAV_ITEMS, PAGE_TITLES, ROLE_PERMISSIONS };
+
+export function setButtonLoading(btn, isLoading, originalHtml = '') {
+  if (!btn) return;
+  if (isLoading) {
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner"></span> <span style="margin-left: 6px;">Loading...</span>`;
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = originalHtml || btn.dataset.originalHtml || 'Submit';
+    btn.disabled = false;
+  }
+}

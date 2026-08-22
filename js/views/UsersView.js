@@ -3,8 +3,31 @@ import Icons from '../icons.js';
 export default class UsersView {
   static render(model) {
     const users = model.users || [];
+    
+    const adminCount = users.filter(u => u.role === 'admin').length;
+    const secCount = users.filter(u => u.role === 'secretary').length;
+    const guardCount = users.filter(u => u.role === 'guard').length;
 
     return `
+      <div class="kpi-strip">
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-icon">${Icons['users'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${users.length}</div><div class="kpi-lbl">Total Users</div></div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon">${Icons['shield-check'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${adminCount}</div><div class="kpi-lbl">Administrators</div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">${Icons['file-text'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${secCount}</div><div class="kpi-lbl">Secretaries</div></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">${Icons['door-open'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${guardCount}</div><div class="kpi-lbl">Guards</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <div>

@@ -1,7 +1,10 @@
 import Dialog from '../../services/Dialog.js';
+import { debounce } from '../../utils.js';
 
 export default class LogsController {
   static bind(controller) {
+    controller.pagination = { page: 1, limit: 25, query: '', gate: 'all', grade: 'all', timeFrom: '', timeTo: '' };
+    
     // Clear Logs
     const btnClear = document.getElementById('logs-btn-clear');
     if (btnClear) {
@@ -62,42 +65,87 @@ export default class LogsController {
     const timeFrom = document.getElementById('logs-filter-time-from');
     const timeTo = document.getElementById('logs-filter-time-to');
     
-    const filterLogs = () => {
-      const term = (searchIn ? searchIn.value : '').toLowerCase();
-      const gate = gateSel ? gateSel.value : 'all';
-      const grade = gradeSel ? gradeSel.value : 'all';
-      const tFrom = timeFrom ? timeFrom.value : ''; // format 'HH:MM'
-      const tTo = timeTo ? timeTo.value : '';       // format 'HH:MM'
-      
-      const rows = document.querySelectorAll('#logs-table tbody tr');
-      
-      rows.forEach(row => {
-        if (row.querySelector('.empty')) return; // skip empty msg
-        
-        const text = row.textContent.toLowerCase();
-        const rowGate = row.getAttribute('data-gate') || '';
-        const rowGrade = row.getAttribute('data-grade') || '';
-        const rowTime = row.getAttribute('data-time') || '';
-        
-        const matchesSearch = text.includes(term);
-        const matchesGate = gate === 'all' || rowGate === gate;
-        const matchesGrade = grade === 'all' || rowGrade === grade;
-        
-        let matchesTime = true;
-        if (tFrom && rowTime < tFrom) matchesTime = false;
-        if (tTo && rowTime > tTo) matchesTime = false;
-
-        row.style.display = matchesSearch && matchesGate && matchesGrade && matchesTime ? '' : 'none';
-      });
+    const applyFilters = () => {
+      controller.pagination.query = (searchIn ? searchIn.value : '').toLowerCase().trim();
+      controller.pagination.gate = gateSel ? gateSel.value : 'all';
+      controller.pagination.grade = gradeSel ? gradeSel.value : 'all';
+      controller.pagination.timeFrom = timeFrom ? timeFrom.value : '';
+      controller.pagination.timeTo = timeTo ? timeTo.value : '';
+      controller.pagination.page = 1;
+      LogsController.updatePagination(controller);
     };
 
+    const filterLogs = debounce(applyFilters, 250);
+
     if (searchIn) searchIn.addEventListener('input', filterLogs);
-    if (gateSel) gateSel.addEventListener('change', filterLogs);
-    if (gradeSel) gradeSel.addEventListener('change', filterLogs);
+    if (gateSel) gateSel.addEventListener('change', applyFilters);
+    if (gradeSel) gradeSel.addEventListener('change', applyFilters);
     if (timeFrom) timeFrom.addEventListener('input', filterLogs);
     if (timeTo) timeTo.addEventListener('input', filterLogs);
     
-    // Apply default filters on load (e.g., user's gate)
-    filterLogs();
+    const btnPrevPage = document.getElementById('btn-page-prev');
+    const btnNextPage = document.getElementById('btn-page-next');
+    if (btnPrevPage) btnPrevPage.addEventListener('click', () => {
+      if (controller.pagination.page > 1) {
+        controller.pagination.page--;
+        LogsController.updatePagination(controller);
+      }
+    });
+    if (btnNextPage) btnNextPage.addEventListener('click', () => {
+      controller.pagination.page++;
+      LogsController.updatePagination(controller);
+    });
+    
+    // Apply default filters on load
+    applyFilters();
+  }
+
+  static updatePagination(controller) {
+    let logs = controller.model.exitLogs || [];
+    
+    let filtered = logs.filter(log => {
+      const student = controller.model.getStudentByPassId(log.studentId) || controller.model.getStudentByStudId(log.studentId);
+      const sName = (student ? student.name : '').toLowerCase();
+      const sGrade = student ? student.grade : '';
+      const logGate = log.gate || 'Gate 1';
+      
+      const date = new Date(log.timestamp);
+      const logTime = String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+      
+      const p = controller.pagination;
+      
+      if (p.query && !sName.includes(p.query)) return false;
+      if (p.gate !== 'all' && logGate !== p.gate) return false;
+      if (p.grade !== 'all' && sGrade !== p.grade) return false;
+      if (p.timeFrom && logTime < p.timeFrom) return false;
+      if (p.timeTo && logTime > p.timeTo) return false;
+      
+      return true;
+    });
+
+    const total = filtered.length;
+    const maxPage = Math.ceil(total / controller.pagination.limit) || 1;
+    if (controller.pagination.page > maxPage) controller.pagination.page = maxPage;
+    if (controller.pagination.page < 1) controller.pagination.page = 1;
+    
+    const start = (controller.pagination.page - 1) * controller.pagination.limit;
+    const paginated = filtered.slice(start, start + controller.pagination.limit);
+
+    import('../../views/LogsView.js').then(module => {
+      const tbody = document.querySelector('#logs-table tbody');
+      if (tbody) tbody.innerHTML = module.default.renderTableRows(paginated, controller.model);
+    });
+
+    // Update Footer State
+    const info = document.getElementById('pagination-info');
+    const btnPrev = document.getElementById('btn-page-prev');
+    const btnNext = document.getElementById('btn-page-next');
+    
+    if (info) {
+      if (total === 0) info.textContent = 'No logs found';
+      else info.textContent = `Showing ${start + 1} to ${Math.min(start + controller.pagination.limit, total)} of ${total} logs`;
+    }
+    if (btnPrev) btnPrev.disabled = controller.pagination.page === 1;
+    if (btnNext) btnNext.disabled = controller.pagination.page === maxPage;
   }
 }

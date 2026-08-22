@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pgp-cache-v30';
+const CACHE_NAME = 'pgp-cache-v31';
 const urlsToCache = [
   './index.html',
   './css/styles.css',

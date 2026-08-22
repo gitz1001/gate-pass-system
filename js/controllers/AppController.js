@@ -1,5 +1,5 @@
 import AppModel from '../models/AppModel.js';
-import AppView, { ROLE_PERMISSIONS } from '../views/AppView.js';
+import AppView, { ROLE_PERMISSIONS, setButtonLoading } from '../views/AppView.js';
 import LoginController from './pages/LoginController.js';
 import DashboardController from './pages/DashboardController.js';
 import LogsController from './pages/LogsController.js';
@@ -10,6 +10,7 @@ import StudentsController from './pages/StudentsController.js';
 import ScannerController from './pages/ScannerController.js';
 import ReportsController from './pages/ReportsController.js';
 import faceBiometrics from '../services/FaceBiometrics.js';
+import Dialog from '../services/Dialog.js';
 import Icons from '../icons.js';
 import { generatePGP } from '../utils.js';
 
@@ -327,9 +328,21 @@ export default class AppController {
         }
       }
 
-      // Logout handler
+      // Bottom nav 'More' button
+      if (e.target.closest('#btn-bottom-more')) {
+        this.view.openMobileSidebar();
+      }
+
+      // Logout handler (with confirmation)
       if (e.target.closest('#btn-logout')) {
-        this.performLogout();
+        e.preventDefault();
+        Dialog.confirm(
+          'Sign Out',
+          'Are you sure you want to sign out? You will need to log in again.',
+          { confirmText: 'Yes, Sign Out', cancelText: 'Cancel', type: 'primary' }
+        ).then(confirmed => {
+          if (confirmed) this.performLogout();
+        });
       }
     });
 
@@ -351,6 +364,21 @@ export default class AppController {
           window.location.hash = '#login';
           this.view.showPage('login', this.model);
           this.bindPageEvents('login');
+        }
+      }
+    });
+
+    // ── Global Escape Key — Close topmost modal ──────────
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      // Don't interfere with Dialog.js dialogs (they handle their own Escape)
+      if (document.querySelector('.dialog-overlay')) return;
+      // Find the topmost visible overlay modal and close it
+      const overlays = Array.from(document.querySelectorAll('.overlay'));
+      for (let i = overlays.length - 1; i >= 0; i--) {
+        if (overlays[i].style.display !== 'none' && overlays[i].style.display !== '') {
+          overlays[i].style.display = 'none';
+          break;
         }
       }
     });
