@@ -105,7 +105,7 @@ export default class SettingsView {
             </div>
             <div>
               <div style="font-size: 18px; font-weight: 700; color: var(--text);">e-gatepass System</div>
-              <div style="font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 8px;">Version 44.4.0 (Production)</div>
+              <div style="font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 8px;">Version 44.5.0 (Production)</div>
               
               <div style="font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px;">
                 The <strong>e-gatepass system</strong> is a secure, automated verification platform designed for student safety. It ensures that students are authorized to leave the campus by instantly retrieving their gate pass arrangements and guardian details, while simultaneously logging the exit and sending real-time email notifications to parents.

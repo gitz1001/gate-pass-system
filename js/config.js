@@ -18,7 +18,7 @@ export const SHEETS_API_URL =
 export const LOGIN_PAGE = './';
 
 // Signed-in application shell.
-export const APP_PAGE = './app';
+export const APP_PAGE = './app.html';
 
 // localStorage / sessionStorage keys.
 export const STORAGE_KEYS = {

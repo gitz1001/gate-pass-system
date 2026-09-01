@@ -87,6 +87,7 @@ export default class PGPView {
             </tbody>
           </table>
         </div>
+        <div id="pgp-pagination" class="pagination-bar"></div>
       </div>
 
       <!-- Floating Bulk Actions Bar -->

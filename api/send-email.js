@@ -191,6 +191,44 @@ function buildExitEmail(data, logoUrl) {
   };
 }
 
+function buildTgpEmail(data, attachment, logoUrl) {
+  const student = escapeHtml(data.studentName);
+  const grade = escapeHtml(data.grade || '—');
+  const tgpNo = escapeHtml(data.tgpNo || '—');
+  const validDate = escapeHtml(formatDate(data.validDate));
+  const gate = escapeHtml(data.gateName || '—');
+  const parent = escapeHtml(data.toName || 'Parent/Guardian');
+
+  const body = `
+<p style="margin:0 0 16px;font-family:${FONT};font-size:15px;line-height:1.65;color:${INK};">Dear ${parent},</p>
+<p style="margin:0 0 22px;font-family:${FONT};font-size:15px;line-height:1.7;color:${INK};">The Temporary Gate Pass for <strong style="color:${BRAND};">${student}</strong> has been <strong>approved</strong>. The pass is attached to this email. Please present the QR code to the guard at the designated gate on the valid date.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;"><tr><td style="padding:20px 22px;background:${PANEL};border-left:4px solid #e08700;border-radius:6px;">
+<p style="margin:0 0 12px;font-family:${FONT};font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#e08700;">Temporary Gate Pass</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${detailsTable([
+  ['Name', student],
+  ['Grade & Section', grade],
+  ['TGP No.', `<span style="font-family:'Courier New',monospace;color:#e08700;letter-spacing:1px;">${tgpNo}</span>`],
+  ['Valid Date', `<strong>${validDate}</strong>`],
+  ['Designated Gate', gate]
+])}</table>
+</td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;"><tr><td style="padding:14px 16px;background:#fff8e6;border:1px solid #f3e3b3;border-radius:6px;font-family:${FONT};font-size:13px;line-height:1.6;color:#6b5312;">
+<strong>Important reminders:</strong><ul style="margin:6px 0 0;padding-left:18px;">
+<li>This pass is valid for <strong>one day only</strong> — the date shown above.</li>
+<li>The QR code is <strong>single-use</strong> and will be marked as used after scanning.</li>
+<li>Proceed only to the <strong>designated gate</strong> listed on the pass.</li>
+</ul>
+</td></tr></table>`;
+
+  return {
+    subject: `Temporary Gate Pass — ${data.studentName} | SISC`,
+    preheader: `Approved TGP for ${data.studentName}, valid on ${data.validDate}. Pass is attached.`,
+    html: buildShell({ body, preheader: `Approved TGP for ${data.studentName}, valid on ${data.validDate}. Pass is attached.`, logoUrl }),
+    text: `Dear ${data.toName || 'Parent/Guardian'},\n\nThe Temporary Gate Pass for ${data.studentName} has been approved. The pass is attached.\n\nName: ${data.studentName}\nGrade & Section: ${data.grade || '—'}\nTGP No.: ${data.tgpNo || '—'}\nValid Date: ${data.validDate}\nDesignated Gate: ${data.gateName || '—'}\n\nThis pass is valid for one day only. The QR code is single-use.\n`,
+    attachments: attachment ? [{ filename: attachment.filename, content: attachment.buffer, contentType: attachment.contentType }] : []
+  };
+}
+
 function getOAuthConfig() {
   return {
     clientId: clean(process.env.GMAIL_CLIENT_ID),
@@ -404,19 +442,25 @@ module.exports = async function handler(req, res) {
     studentName: clean(body.student_name, 'Student'),
     grade: clean(body.grade),
     pgpNo: clean(body.pgp_no),
+    tgpNo: clean(body.tgp_no),
+    validDate: clean(body.valid_date),
     gateName: clean(body.gate_name),
     exitTime: clean(body.exit_time),
     exitDate: clean(body.exit_date)
   };
 
-  const attachment = emailType === 'pgp_delivery' ? decodeAttachment(body) : null;
-  if (emailType === 'pgp_delivery' && !attachment) {
-    return res.status(400).json({ success: false, message: 'The Permanent Gate Pass image attachment is missing or invalid.' });
+  const needsAttachment = emailType === 'pgp_delivery' || emailType === 'tgp_delivery';
+  const attachment = needsAttachment ? decodeAttachment(body) : null;
+  if (needsAttachment && !attachment) {
+    const label = emailType === 'tgp_delivery' ? 'Temporary' : 'Permanent';
+    return res.status(400).json({ success: false, message: `The ${label} Gate Pass image attachment is missing or invalid.` });
   }
 
   const logoUrl = getLogoUrl(req);
   const message = emailType === 'pgp_delivery'
     ? buildPgpEmail(data, attachment, logoUrl)
+    : emailType === 'tgp_delivery'
+    ? buildTgpEmail(data, attachment, logoUrl)
     : buildExitEmail(data, logoUrl);
 
   try {

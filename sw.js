@@ -11,7 +11,7 @@
 //     no longer abort the whole install (cache.addAll is all-or-nothing).
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'pgp-cache-v49.0.0';
+const CACHE_NAME = 'pgp-cache-v50.0.0';
 
 // Files that make up the app shell — always revalidated against the network.
 //
@@ -25,6 +25,7 @@ const APP_SHELL = [
   './app',
   './index.html',
   './app.html',
+  './tgpForm.html',
   './css/styles.css',
   './css/landing.css',
   './js/main.js',
@@ -129,6 +130,7 @@ self.addEventListener('fetch', event => {
   // Matches both the clean route and the extension, since cleanUrls serves
   // this page at /newForm and redirects /newForm.html to it.
   if (url.pathname.endsWith('/newForm') || url.pathname.endsWith('/newForm.html')) return;
+  if (url.pathname.endsWith('/tgpForm') || url.pathname.endsWith('/tgpForm.html')) return;
   // Nor our own serverless API — those responses must never be cached.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 

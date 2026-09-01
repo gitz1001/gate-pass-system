@@ -1,4 +1,4 @@
-import { resolvePhotoUrl, hasPhoto, escapeHTML, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages } from '../../utils.js';
+import { resolvePhotoUrl, hasPhoto, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
 import { setButtonLoading } from '../../views/AppView.js';
 
@@ -10,31 +10,107 @@ export default class TGPController {
     const btnCancel = document.getElementById('btn-cancel-tgp');
     const form = document.getElementById('form-tgp');
 
+    // Grade → Section data (mirrors tgpForm.html)
+    const TGP_SECTIONS = {
+      'Grade 7':  ['Determination','Gratitude','Kindness','Mindfulness','Optimism','Resilience'],
+      'Grade 8':  ['Creativity','Empathy','Enthusiasm','Integrity','Joy','Justice'],
+      'Grade 9':  ['Compassion','Diligence','Fortitude','Generosity','Harmony','Sincerity'],
+      'Grade 10': ['Commitment','Conviction','Leadership','Patriotism','Prudence','Responsibility','Teamwork'],
+      'Grade 11': ['Competence','Efficiency','Excellence','Growth Mindset','Industry','Innovation','Synergy'],
+      'Grade 12': ['Diplomacy','Dynamism','Grit','Initiative','Rigor','Service','Tenacity'],
+      'IB1': ['Inquirers','Communicators'],
+      'IB2': ['Risk-Takers','Balanced']
+    };
+
+    function populateTgpSections() {
+      const gradeEl = document.getElementById('tgp-grade');
+      const sectionEl = document.getElementById('tgp-section');
+      if (!gradeEl || !sectionEl) return;
+      const grade = gradeEl.value;
+      sectionEl.innerHTML = '';
+      if (!grade) {
+        sectionEl.appendChild(new Option('Select grade first', ''));
+        sectionEl.disabled = true;
+        return;
+      }
+      const list = TGP_SECTIONS[grade] || [];
+      sectionEl.appendChild(new Option('-- Section --', ''));
+      list.forEach(s => sectionEl.appendChild(new Option(s, s)));
+      sectionEl.disabled = false;
+    }
+
+    const gradeEl = document.getElementById('tgp-grade');
+    if (gradeEl) gradeEl.addEventListener('change', populateTgpSections);
+
+    // Photo state
+    let tgpPhotoFile = null;
+    function resetTgpModalState() {
+      populateTgpSections();
+      tgpPhotoFile = null;
+      const ph = document.getElementById('tgp-photo-placeholder');
+      const pv = document.getElementById('tgp-photo-preview');
+      if (ph) ph.style.display = '';
+      if (pv) pv.style.display = 'none';
+    }
+
+    const photoArea = document.getElementById('tgp-photo-area');
+    const photoInput = document.getElementById('tgp-photo-input');
+    if (photoArea && photoInput) {
+      photoArea.addEventListener('click', () => photoInput.click());
+      photoInput.addEventListener('change', () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+        tgpPhotoFile = file;
+        document.getElementById('tgp-photo-name').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          document.getElementById('tgp-photo-img').src = ev.target.result;
+          document.getElementById('tgp-photo-placeholder').style.display = 'none';
+          document.getElementById('tgp-photo-preview').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     if (btnAdd && modal) btnAdd.addEventListener('click', () => modal.style.display = 'flex');
-    if (btnClose && modal) btnClose.addEventListener('click', () => modal.style.display = 'none');
+    if (btnClose && modal) btnClose.addEventListener('click', () => { modal.style.display = 'none'; });
     if (btnCancel && modal) btnCancel.addEventListener('click', (e) => { e.preventDefault(); modal.style.display = 'none'; });
 
     if (form) {
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const studentId = document.getElementById('tgp-student').value;
-        const validDate = document.getElementById('tgp-date').value;
-        const gate = document.getElementById('tgp-gate').value;
-        const reason = document.getElementById('tgp-reason').value;
-        const requester = document.getElementById('tgp-requester').value;
+        const lastName    = (document.getElementById('tgp-last-name').value || '').trim();
+        const firstName   = (document.getElementById('tgp-first-name').value || '').trim();
+        const studentId   = (document.getElementById('tgp-studid').value || '').trim();
+        const grade       = document.getElementById('tgp-grade').value;
+        const section     = document.getElementById('tgp-section').value;
+        const validDate   = document.getElementById('tgp-date').value;
+        const gate        = document.getElementById('tgp-gate').value;
+        const reason      = document.getElementById('tgp-reason').value;
+        const requester   = document.getElementById('tgp-requester').value;
+        const studentEmail = (document.getElementById('tgp-student-email').value || '').trim();
+        const contactPhone = (document.getElementById('tgp-phone').value || '').trim();
+        const parentEmail  = (document.getElementById('tgp-parent-email')?.value || '').trim();
+
+        const name = lastName && firstName ? `${lastName}, ${firstName}` : (lastName || firstName || '');
 
         const newTGP = {
-          // Same TGP-XXXXXX shape as before, from a cryptographic source.
-          // A scanned TGP is accepted on its id alone — there is no second
-          // token as there is on a permanent pass — so the id should not come
-          // from Math.random, whose output is predictable from earlier draws.
+          // Cryptographic ID — TGP is accepted at the gate on this alone,
+          // so it must not be guessable from earlier Math.random draws.
           id: 'TGP-' + generateQRToken(6),
           studentId,
+          name,
+          grade,
+          section,
+          studentEmail,
+          contactPhone,
+          parentEmail,
           validDate,
           gate,
           reason,
           requester,
           status: 'pending',
+          source: 'staff',
           createdAt: new Date().toISOString()
         };
 
@@ -42,10 +118,33 @@ export default class TGPController {
         setButtonLoading(btnSubmit, true);
 
         try {
+          // Optional photo: compress to base64 and store directly (works on XAMPP and Vercel)
+          if (tgpPhotoFile) {
+            try {
+              newTGP.photo = await new Promise(resolve => {
+                const img = new Image();
+                const r = new FileReader();
+                r.onload = ev => {
+                  img.onload = () => {
+                    const scale = Math.min(1, 200 / Math.max(img.width, img.height));
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(img.width * scale);
+                    c.height = Math.round(img.height * scale);
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    resolve(c.toDataURL('image/jpeg', 0.75));
+                  };
+                  img.src = ev.target.result;
+                };
+                r.readAsDataURL(tgpPhotoFile);
+              });
+            } catch (_) { /* Photo is optional — never blocks submit */ }
+          }
+
           await controller.model.addTGP(newTGP);
           controller.view.showToast('TGP Request Submitted');
           modal.style.display = 'none';
           form.reset();
+          resetTgpModalState();
           controller.navigateToPage('tgp');
         } finally {
           setButtonLoading(btnSubmit, false);
@@ -103,7 +202,11 @@ export default class TGPController {
     let tgpList = controller.model.tgp || [];
     const p = controller.tgpPagination;
     
-    let filtered = tgpList.filter(t => p.filter === 'all' || t.status === p.filter);
+    let filtered = tgpList.filter(t => {
+      if (p.filter === 'all') return true;
+      if (p.filter === 'online') return t.source === 'online';
+      return t.status === p.filter;
+    });
     
     // Sort by createdAt descending
     filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -150,12 +253,14 @@ export default class TGPController {
         if (!tgp) return;
 
         const student = controller.model.getStudentByPassId(tgp.studentId) || controller.model.getStudentByStudId(tgp.studentId);
-        const sName = student ? student.name : 'Unknown Student';
-        const sGrade = student ? `${student.grade} ${student.section ? '- ' + student.section : ''}` : '';
-        const dateStr = new Date(tgp.validDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+        const sName = tgp.name || (student ? student.name : 'Unknown Student');
+        const sGrade = (tgp.grade ? `${tgp.grade}${tgp.section ? ' - ' + tgp.section : ''}` : '') || (student ? `${student.grade}${student.section ? ' - ' + student.section : ''}` : '');
+        const dateStr = new Date(tgp.validDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
 
-        const photoHtml = student && hasPhoto(student.photo)
+        const photoHtml = (student && hasPhoto(student.photo))
           ? `<img src="${resolvePhotoUrl(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
+          : hasPhoto(tgp.photo)
+          ? `<img src="${tgp.photo}" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#e08700;">${sName.substring(0,2).toUpperCase()}</div>`;
 
         const target = document.getElementById('tgp-card-render-target');
@@ -198,6 +303,21 @@ export default class TGPController {
           }
         }, 50);
 
+        // Show/hide the email button based on whether the TGP has a student email
+        const btnEmail = document.getElementById('btn-email-tgp');
+        if (btnEmail) {
+          if (tgp.studentEmail) {
+            btnEmail.style.display = '';
+            btnEmail.dataset.tgpId = tgpId;
+          } else {
+            btnEmail.style.display = 'none';
+          }
+        }
+
+        // Store context on download button so the filename can reference the student
+        const btnDl = document.getElementById('btn-download-tgp');
+        if (btnDl) { btnDl.dataset.tgpId = tgpId; btnDl.dataset.tgpName = sName; }
+
         modalCard.style.display = 'flex';
       });
     });
@@ -217,11 +337,76 @@ export default class TGPController {
         html2canvas(captureArea, { scale: 3, useCORS: true }).then(canvas => {
           const a = document.createElement('a');
           a.href = canvas.toDataURL("image/png");
-          a.download = `TGP_Card_${Date.now()}.png`;
+          const dlName = (btnDownload.dataset.tgpName || 'Student').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 40);
+          const dlId = btnDownload.dataset.tgpId || Date.now();
+          a.download = `TGP_${dlName}_${dlId}.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           btnDownload.innerHTML = 'Download Image';
           btnDownload.disabled = false;
         });
+      });
+    }
+
+    // Email TGP Card — uses the card that's already rendered in the modal
+    const btnEmail = document.getElementById('btn-email-tgp');
+    if (btnEmail) {
+      btnEmail.addEventListener('click', async () => {
+        const tgpId = btnEmail.dataset.tgpId;
+        const tgp = controller.model.tgp.find(t => t.id === tgpId);
+        if (!tgp || !tgp.studentEmail) return;
+
+        const confirmed = await Dialog.confirm(
+          'Email Pass',
+          `Send the TGP card to:\n${tgp.studentEmail}`,
+          { confirmText: 'Send Email', type: 'primary' }
+        );
+        if (!confirmed) return;
+
+        const captureArea = document.getElementById('tgp-card-capture');
+        if (!captureArea) return;
+
+        const originalHtml = btnEmail.innerHTML;
+        btnEmail.disabled = true;
+        btnEmail.innerHTML = 'Sending…';
+
+        try {
+          await waitForImages(captureArea);
+          const canvas = await html2canvas(captureArea, { scale: 3, useCORS: true });
+          const base64 = canvas.toDataURL('image/png');
+
+          const student = controller.model.getStudentByPassId(tgp.studentId) || controller.model.getStudentByStudId(tgp.studentId);
+          const sName = student ? student.name : (tgp.name || 'Unknown Student');
+          const sGrade = student ? `${student.grade}${student.section ? ' - ' + student.section : ''}` : '';
+
+          const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email_type: 'tgp_delivery',
+              to_email: tgp.studentEmail,
+              to_name: tgp.requester || '',
+              student_name: sName,
+              grade: sGrade,
+              tgp_no: tgp.id,
+              valid_date: tgp.validDate,
+              gate_name: tgp.gate,
+              attachment_base64: base64,
+              attachment_name: `TGP_${tgp.id}.png`
+            })
+          });
+
+          const result = await res.json();
+          if (result.success) {
+            controller.view.showToast(`Pass emailed to ${tgp.studentEmail}`);
+          } else {
+            controller.view.showToast(`Email failed: ${result.message || 'Unknown error'}`);
+          }
+        } catch (err) {
+          controller.view.showToast(`Email failed: ${err.message || String(err)}`);
+        } finally {
+          btnEmail.disabled = false;
+          btnEmail.innerHTML = originalHtml;
+        }
       });
     }
   }

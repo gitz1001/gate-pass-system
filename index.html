@@ -373,7 +373,15 @@
       </div>
     </a>
     <nav class="nav-actions" aria-label="Main navigation">
-      <a href="newForm" class="btn btn-solid apply-short" aria-label="Apply for Gatepass">
+      <a href="tgpForm.html" class="btn btn-line apply-short" aria-label="Request Temporary Pass" style="font-size:13px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Temp Pass</span>
+      </a>
+      <a href="newForm.html" class="btn btn-solid apply-short" aria-label="Apply for Gatepass">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -414,7 +422,7 @@
       </p>
 
       <div class="hero-actions">
-        <a href="newForm" class="btn btn-solid btn-lg">
+        <a href="newForm.html" class="btn btn-solid btn-lg">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -429,15 +437,15 @@
             <polyline points="12 5 19 12 12 19" />
           </svg>
         </a>
-        <button class="btn btn-line btn-lg" id="hero-login-btn" aria-haspopup="dialog">
+        <a href="tgpForm.html" class="btn btn-line btn-lg">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-            <polyline points="10 17 15 12 10 7" />
-            <line x1="15" y1="12" x2="3" y2="12" />
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          Staff Login
-        </button>
+          Request Temporary Pass
+        </a>
       </div>
 
       <div class="scroll-hint" aria-hidden="true">
@@ -553,11 +561,10 @@
         <div class="cta-wrap reveal">
           <div class="cta-card">
             <p class="eyebrow center">Get Started Today</p>
-            <h2>Ready to Apply for Your Permanent Gatepass?</h2>
-            <p>Complete the online application form in minutes. No paper, no queues — just a fast, digital process
-              backed by the school's official system.</p>
+            <h2>Apply for a Gatepass or Request a Temporary Pass</h2>
+            <p>Submit a Permanent Gatepass application online, or request a one-day Temporary Gate Pass for special exit needs. Both are fast, digital, and paperless.</p>
             <div class="cta-actions">
-              <a href="newForm" class="btn btn-solid btn-lg">
+              <a href="newForm.html" class="btn btn-solid btn-lg">
                 Apply for Gatepass
                 <svg class="arr" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -565,15 +572,15 @@
                   <polyline points="12 5 19 12 12 19" />
                 </svg>
               </a>
-              <button class="btn btn-line btn-lg" id="cta-login-btn" aria-haspopup="dialog">
+              <a href="tgpForm.html" class="btn btn-line btn-lg">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                  <polyline points="10 17 15 12 10 7" />
-                  <line x1="15" y1="12" x2="3" y2="12" />
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
-                Staff Login
-              </button>
+                Request Temporary Pass
+              </a>
             </div>
           </div>
         </div>
@@ -719,8 +726,6 @@
     }
 
     document.getElementById('btn-open-login').addEventListener('click', openLoginModal);
-    document.getElementById('hero-login-btn').addEventListener('click', openLoginModal);
-    document.getElementById('cta-login-btn').addEventListener('click', openLoginModal);
     document.getElementById('login-modal-close').addEventListener('click', closeLoginModal);
     loginModal.addEventListener('click', e => { if (e.target === loginModal) closeLoginModal(); });
 
