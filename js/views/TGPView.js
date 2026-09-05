@@ -43,12 +43,21 @@ export default class TGPView {
           </button>
         </div>
 
-        <div style="padding: 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); display: flex; gap: 8px; flex-wrap: wrap;">
+        <div style="padding: 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
            <button class="pill on" data-filter="all">All</button>
            <button class="pill" data-filter="pending">Pending Approval</button>
            <button class="pill" data-filter="approved">Approved</button>
            <button class="pill" data-filter="rejected">Rejected</button>
            <button class="pill" data-filter="online">Online Applications</button>
+           <div style="margin-left: auto;">
+             <select id="tgp-filter-gate" class="form-input" style="font-size:13px;padding:6px 10px;width:auto;min-width:140px;">
+               <option value="all">All Gates</option>
+               ${(model.getActiveGates && model.getActiveGates().length > 0
+                 ? model.getActiveGates()
+                 : [{ name: 'Tropical Gate' }, { name: 'Gate 1' }, { name: 'Gate 2' }, { name: 'College Gate' }, { name: 'Monarchs Gym' }]
+               ).map(g => `<option value="${escapeHTML(g.name)}">${escapeHTML(g.name)}</option>`).join('')}
+             </select>
+           </div>
         </div>
 
         <div class="tbl-wrap">
@@ -160,10 +169,10 @@ export default class TGPView {
                 <div class="form-group required">
                   <label for="tgp-gate">Designated Gate</label>
                   <select id="tgp-gate" class="form-input" required>
-                    <option value="Tropical Gate">Tropical Gate</option>
-                    <option value="Gate 1">Gate 1</option>
-                    <option value="Gate 2">Gate 2</option>
-                    <option value="College Gate">College Gate</option>
+                    ${(model.getActiveGates && model.getActiveGates().length > 0
+                      ? model.getActiveGates()
+                      : [{ name: 'Tropical Gate' }, { name: 'Gate 1' }, { name: 'Gate 2' }, { name: 'College Gate' }, { name: 'Monarchs Gym' }]
+                    ).map(g => `<option value="${escapeHTML(g.name)}">${escapeHTML(g.name)}</option>`).join('')}
                   </select>
                 </div>
               </div>

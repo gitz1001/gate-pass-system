@@ -51,12 +51,12 @@ export default class ScannerView {
               ${Icons['door-open'](32)}
               <span id="gate-banner-text">${escapeHTML(userGate.toUpperCase())}</span>
             </div>
-            <div class="form-group" style="width: 160px; margin: 0;">
+            <div class="form-group" style="width: 180px; margin: 0;">
               <select id="scan-gate" class="form-input" style="background: rgba(255,255,255,0.9); border: none; font-weight: 600;" ${model.currentUser?.role === 'guard' ? 'disabled' : ''}>
-                <option value="Tropical Gate" ${userGate === 'Tropical Gate' ? 'selected' : ''}>Tropical Gate</option>
-                <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
-                <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
-                <option value="College Gate" ${userGate === 'College Gate' ? 'selected' : ''}>College Gate</option>
+                ${(model.getActiveGates && model.getActiveGates().length > 0
+                  ? model.getActiveGates()
+                  : [{ name: 'Tropical Gate' }, { name: 'Gate 1' }, { name: 'Gate 2' }, { name: 'College Gate' }, { name: 'Monarchs Gym' }]
+                ).map(g => `<option value="${escapeHTML(g.name)}" ${userGate === g.name ? 'selected' : ''}>${escapeHTML(g.name)}</option>`).join('')}
               </select>
             </div>
           </div>

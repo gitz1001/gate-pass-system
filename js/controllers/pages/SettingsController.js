@@ -1,6 +1,7 @@
 import Dialog from '../../services/Dialog.js';
 import SheetsService from '../../services/SheetsService.js';
 import { generatePGP, escapeHTML, generateQRToken } from '../../utils.js';
+import SettingsView from '../../views/SettingsView.js';
 
 export default class SettingsController {
 
@@ -126,6 +127,71 @@ export default class SettingsController {
           }
         }
       });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Gate Management (Admin Only)
+    // ══════════════════════════════════════════════════════════
+
+    const openGateModal = (gate = null) => {
+      const existing = document.getElementById('modal-gate');
+      if (existing) existing.remove();
+      document.body.insertAdjacentHTML('beforeend', SettingsView.renderGateModal(controller.model, gate));
+
+      const modal = document.getElementById('modal-gate');
+      const closeModal = () => modal.remove();
+
+      document.getElementById('btn-close-gate-modal').addEventListener('click', closeModal);
+      document.getElementById('btn-cancel-gate-modal').addEventListener('click', closeModal);
+      modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+      document.getElementById('form-gate').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('gate-id').value.trim();
+        const name = document.getElementById('gate-name').value.trim();
+        const assignedGuard = document.getElementById('gate-guard').value;
+        const status = document.getElementById('gate-status').value;
+
+        if (!name) { controller.view.showToast('Gate name is required', 'error'); return; }
+
+        const saveBtn = document.getElementById('btn-save-gate');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+
+        try {
+          if (id) {
+            await controller.model.updateGate({ id, name, assignedGuard, status });
+            controller.view.showToast(`Gate "${name}" updated`);
+          } else {
+            const newId = 'gate-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            await controller.model.addGate({ id: newId, name, assignedGuard, status });
+            controller.view.showToast(`Gate "${name}" added`);
+          }
+          closeModal();
+          document.getElementById('gates-table-wrap').innerHTML = SettingsView.renderGatesTable(controller.model);
+          bindGateEditButtons();
+        } catch (err) {
+          controller.view.showToast('Failed to save gate: ' + err.message, 'error');
+          saveBtn.disabled = false;
+          saveBtn.textContent = id ? 'Save Changes' : 'Add Gate';
+        }
+      });
+    };
+
+    const bindGateEditButtons = () => {
+      document.querySelectorAll('.btn-edit-gate').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const gate = controller.model.gates.find(g => g.id === id);
+          if (gate) openGateModal(gate);
+        });
+      });
+    };
+
+    const btnAddGate = document.getElementById('btn-add-gate');
+    if (btnAddGate) {
+      btnAddGate.addEventListener('click', () => openGateModal());
+      bindGateEditButtons();
     }
 
     // ══════════════════════════════════════════════════════════

@@ -1,6 +1,87 @@
 import Icons from '../icons.js';
+import { escapeHTML } from '../utils.js';
 
 export default class SettingsView {
+  static renderGatesTable(model) {
+    const gates = model.gates || [];
+    const guards = (model.users || []).filter(u => u.role === 'guard');
+    if (!gates.length) {
+      return `<div style="color:var(--text3);font-size:13px;padding:8px 0;">No gates configured yet. Click "Add Gate" to create the first one.</div>`;
+    }
+    return `
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Gate Name</th>
+              <th>Assigned Guard</th>
+              <th>Status</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${gates.map(g => {
+              const guard = guards.find(u => u.username === g.assignedGuard);
+              const guardName = guard ? escapeHTML(guard.name || guard.username) : (g.assignedGuard ? escapeHTML(g.assignedGuard) : '<span style="color:var(--text3);">Unassigned</span>');
+              const statusBadge = g.status === 'active'
+                ? `<span class="badge badge-green">Active</span>`
+                : `<span class="badge badge-gray">Inactive</span>`;
+              return `
+                <tr>
+                  <td style="font-weight:600;">${escapeHTML(g.name)}</td>
+                  <td>${guardName}</td>
+                  <td>${statusBadge}</td>
+                  <td style="text-align:right;">
+                    <button class="btn btn-ghost btn-sm btn-edit-gate" data-id="${escapeHTML(g.id)}">${Icons['edit'](14)} Edit</button>
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  static renderGateModal(model, gate = null) {
+    const guards = (model.users || []).filter(u => u.role === 'guard');
+    const isEdit = !!gate;
+    return `
+      <div id="modal-gate" class="overlay" style="display:flex;">
+        <div class="modal" style="max-width:420px;">
+          <div class="modal-head">
+            <div class="modal-title">${isEdit ? 'Edit Gate' : 'Add New Gate'}</div>
+            <button class="close-btn" id="btn-close-gate-modal">${Icons['x-close'](14)}</button>
+          </div>
+          <div class="modal-body">
+            <form id="form-gate">
+              <input type="hidden" id="gate-id" value="${gate ? escapeHTML(gate.id) : ''}">
+              <div class="form-group required mb-12">
+                <label for="gate-name">Gate Name</label>
+                <input type="text" id="gate-name" class="form-input" required placeholder="e.g. Monarchs Gym" value="${gate ? escapeHTML(gate.name) : ''}">
+              </div>
+              <div class="form-group mb-12">
+                <label for="gate-guard">Assigned Guard</label>
+                <select id="gate-guard" class="form-input">
+                  <option value="">-- Unassigned --</option>
+                  ${guards.map(u => `<option value="${escapeHTML(u.username)}" ${gate && gate.assignedGuard === u.username ? 'selected' : ''}>${escapeHTML(u.name || u.username)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group mb-12">
+                <label for="gate-status">Status</label>
+                <select id="gate-status" class="form-input">
+                  <option value="active" ${!gate || gate.status === 'active' ? 'selected' : ''}>Active</option>
+                  <option value="inactive" ${gate && gate.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                </select>
+              </div>
+            </form>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="btn btn-ghost" id="btn-cancel-gate-modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-gate" form="form-gate">${isEdit ? 'Save Changes' : 'Add Gate'}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
   static render(model) {
     const currentTheme = model.getTheme() || 'auto';
     
@@ -58,6 +139,24 @@ export default class SettingsView {
         </div>
 
         ${model.currentUser?.role === 'admin' ? `
+        <!-- Gate Management (Admin Only) -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Gate Management</div>
+              <div class="card-sub">Add, edit, or deactivate campus gates. Changes apply immediately across the system.</div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-add-gate">
+              ${Icons['plus'](14)} Add Gate
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="gates-table-wrap">
+              ${SettingsView.renderGatesTable(model)}
+            </div>
+          </div>
+        </div>
+
         <!-- Pass ID Management (Admin Only) -->
         <div class="card" style="grid-column: 1 / -1;">
           <div class="card-head">
@@ -105,7 +204,7 @@ export default class SettingsView {
             </div>
             <div>
               <div style="font-size: 18px; font-weight: 700; color: var(--text);">e-gatepass System</div>
-              <div style="font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 8px;">Version 44.5.0 (Production)</div>
+              <div style="font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 8px;">Version 1.4.5 (Production)</div>
               
               <div style="font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px;">
                 The <strong>e-gatepass system</strong> is a secure, automated verification platform designed for student safety. It ensures that students are authorized to leave the campus by instantly retrieving their gate pass arrangements and guardian details, while simultaneously logging the exit and sending real-time email notifications to parents.
@@ -120,9 +219,6 @@ export default class SettingsView {
                 </ul>
               </div>
               
-              <a href="manual.pdf" target="_blank" rel="noopener" id="btn-user-manual" class="btn btn-outline" style="display: none; text-decoration: none; font-size: 13px; padding: 8px 16px; margin-bottom: 16px;">
-                ${Icons['download'](16)} Download User Manual
-              </a>
 
               <div style="font-size: 11px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 12px;">&copy; 2026 Southville International School and Colleges</div>
             </div>

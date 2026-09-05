@@ -636,8 +636,8 @@
           >Preferred Exit Gate During Dismissal
           <span class="req">*</span></label
         >
-        <div class="help">
-          Tick every gate the student is allowed to use. Ticking all four is
+        <div class="help" id="gate-help">
+          Tick every gate the student is allowed to use. Selecting all gates is
           recorded as "Any authorized gate".
         </div>
         <div class="checkgroup" id="gateGroup">
@@ -656,6 +656,10 @@
           <label class="checkitem">
             <input type="checkbox" name="gate" value="College Gate" />
             <span>College Gate</span>
+          </label>
+          <label class="checkitem">
+            <input type="checkbox" name="gate" value="Monarchs Gym" />
+            <span>Monarchs Gym</span>
           </label>
         </div>
         <div class="field-error" id="err-gate">
@@ -890,7 +894,7 @@
   }
 
   /* Every gate ticked is recorded as "Any authorized gate". */
-  var ALL_GATES = ["Tropical Gate", "Gate 1", "Gate 2", "College Gate"];
+  var ALL_GATES = ["Tropical Gate", "Gate 1", "Gate 2", "College Gate", "Monarchs Gym"];
   function formatGates(values) {
     var all = ALL_GATES.every(function (g) {
       return values.indexOf(g) !== -1;
@@ -898,6 +902,26 @@
     if (all) return "Any authorized gate";
     return values.join(" and ");
   }
+
+  /* Load active gates from the API and rebuild the checkbox group dynamically. */
+  async function loadGates() {
+    try {
+      var url = await apiEndpoint();
+      var res = await fetch(url + '?action=getGates&_t=' + Date.now(), { cache: 'no-store' });
+      var json = await res.json();
+      if (!json.success || !json.data || !json.data.length) return;
+      var active = json.data.filter(function(g) { return (g.Status || 'active').toLowerCase() === 'active'; });
+      if (!active.length) return;
+      ALL_GATES = active.map(function(g) { return g.GateName; });
+      var group = $('gateGroup');
+      if (!group) return;
+      group.innerHTML = ALL_GATES.map(function(name) {
+        var safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        return '<label class="checkitem"><input type="checkbox" name="gate" value="' + safe + '" /><span>' + safe + '</span></label>';
+      }).join('');
+    } catch (_) { /* fall back to defaults already in the DOM */ }
+  }
+  loadGates();
 
   /* ---------- 3. Philippine mobile number ---------- */
   var phoneInput = $("phone");

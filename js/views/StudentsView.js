@@ -241,6 +241,7 @@ export default class StudentsView {
                         <option value="Gate 1">Gate 1</option>
                         <option value="Gate 2">Gate 2</option>
                         <option value="College Gate">College Gate</option>
+                        <option value="Monarchs Gym">Monarchs Gym</option>
                       </optgroup>
                       <optgroup label="Dual Combinations">
                         <option value="Tropical Gate and Gate 1">Tropical Gate & Gate 1</option>
@@ -249,9 +250,12 @@ export default class StudentsView {
                         <option value="Gate 1 and Gate 2">Gate 1 & Gate 2</option>
                         <option value="Gate 2 and College Gate">Gate 2 & College Gate</option>
                         <option value="College Gate and Gate 1">College Gate & Gate 1</option>
+                        <option value="Monarchs Gym and College Gate">Monarchs Gym & College Gate</option>
+                        <option value="Monarchs Gym and Gate 1">Monarchs Gym & Gate 1</option>
                       </optgroup>
                       <optgroup label="Multiple Gates">
                         <option value="Tropical Gate, Gate 1, and Gate 2">Tropical Gate, Gate 1, and Gate 2</option>
+                        <option value="Tropical Gate, College Gate, and Monarchs Gym">Tropical Gate, College Gate & Monarchs Gym</option>
                         <option value="All Gates">All Gates</option>
                         <option value="Any authorized gate">Any authorized gate</option>
                       </optgroup>
@@ -507,6 +511,7 @@ export default class StudentsView {
                       <option value="Gate 1">Gate 1</option>
                       <option value="Gate 2">Gate 2</option>
                       <option value="College Gate">College Gate</option>
+                      <option value="Monarchs Gym">Monarchs Gym</option>
                     </optgroup>
                     <optgroup label="Dual Combinations">
                       <option value="Tropical Gate and Gate 1">Tropical Gate & Gate 1</option>
@@ -515,9 +520,12 @@ export default class StudentsView {
                       <option value="Gate 1 and Gate 2">Gate 1 & Gate 2</option>
                       <option value="Gate 2 and College Gate">Gate 2 & College Gate</option>
                       <option value="College Gate and Gate 1">College Gate & Gate 1</option>
+                      <option value="Monarchs Gym and College Gate">Monarchs Gym & College Gate</option>
+                      <option value="Monarchs Gym and Gate 1">Monarchs Gym & Gate 1</option>
                     </optgroup>
                     <optgroup label="Multiple Gates">
                       <option value="Tropical Gate, Gate 1, and Gate 2">Tropical Gate, Gate 1, and Gate 2</option>
+                      <option value="Tropical Gate, College Gate, and Monarchs Gym">Tropical Gate, College Gate & Monarchs Gym</option>
                       <option value="All Gates">All Gates</option>
                       <option value="Any authorized gate">Any authorized gate</option>
                     </optgroup>

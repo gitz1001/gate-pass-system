@@ -92,8 +92,21 @@ function handleRequest(e) {
       case 'getAll':
         result = getAllData();
         break;
+      case 'getGates':
+        result = getSheetData('gates');
+        break;
 
       // ── WRITE operations (POST requests with JSON body) ──
+      case 'addGate':
+        result = addRow('gates', readBody_(e));
+        break;
+      case 'updateGate':
+        result = updateRow('gates', readBody_(e));
+        break;
+      case 'removeGate':
+        var gateData = readBody_(e);
+        result = deleteRow('gates', gateData.id);
+        break;
       case 'addStudent':
         result = addRow('students', readBody_(e));
         break;
@@ -243,7 +256,8 @@ function getAllData() {
     students: getSheetData('students'),
     scan_logs: getSheetData('scan_logs'),
     temporary_passes: getSheetData('temporary_passes'),
-    users: getSheetData('users')
+    users: getSheetData('users'),
+    gates: SpreadsheetApp.getActiveSpreadsheet().getSheetByName('gates') ? getSheetData('gates') : []
   };
 }
 

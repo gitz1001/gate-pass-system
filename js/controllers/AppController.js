@@ -755,9 +755,9 @@ export default class AppController {
     const gateSelect = document.getElementById('scan-gate');
     const scannerGate = gateSelect ? gateSelect.value : 'Gate 1';
 
-    // Helper for gate validation
+    // Helper for gate validation. Empty gate = denied (no gate assigned).
     const isGateAllowed = (allowedStr) => {
-      if (!allowedStr) return true;
+      if (!allowedStr || !allowedStr.trim()) return false;
       if (allowedStr.includes('All Gates') || allowedStr.includes('Any authorized gate')) return true;
       return allowedStr.includes(scannerGate);
     };
@@ -804,10 +804,13 @@ export default class AppController {
         isDenied = true;
         msg = 'FORGED OR INVALID QR CODE';
       } else {
-        designatedGate = student.preferredGate || 'Any authorized gate';
+        designatedGate = student.preferredGate || '';
         if (student.status !== 'active') {
           isDenied = true;
           msg = `Pass is ${student.status}`;
+        } else if (!designatedGate) {
+          isDenied = true;
+          msg = 'No gate assigned to this pass. Contact the admin.';
         } else if (!isGateAllowed(designatedGate)) {
           isDenied = true;
           msg = `Wrong gate. Must use: ${designatedGate}`;

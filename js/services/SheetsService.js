@@ -92,4 +92,19 @@ export default class SheetsService {
 
   // ── Users ─────────────────────────────────────────────────
   static async getUsers() { return this.get('getUsers'); }
+
+  // ── Gates ─────────────────────────────────────────────────
+  static async getGates() { return this.get('getGates'); }
+
+  static async addGate(gate) {
+    return this.post('addGate', gate);
+  }
+
+  static async updateGate(gate) {
+    return this.post('updateGate', gate);
+  }
+
+  static async removeGate(id) {
+    return this.post('removeGate', { id });
+  }
 }

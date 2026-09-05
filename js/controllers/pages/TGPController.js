@@ -159,7 +159,22 @@ export default class TGPController {
     }
 
     // Pill filters
-    controller.tgpPagination = { page: 1, limit: 25, filter: 'all' };
+    const defaultGate = controller.model.currentUser?.role === 'guard' && controller.model.currentUser?.gate
+      ? controller.model.currentUser.gate
+      : 'all';
+    controller.tgpPagination = { page: 1, limit: 25, filter: 'all', gate: defaultGate };
+
+    // Gate filter dropdown (added alongside pills)
+    const gateFilter = document.getElementById('tgp-filter-gate');
+    if (gateFilter) {
+      gateFilter.value = defaultGate;
+      gateFilter.addEventListener('change', () => {
+        controller.tgpPagination.gate = gateFilter.value;
+        controller.tgpPagination.page = 1;
+        TGPController.updatePagination(controller);
+      });
+    }
+
     const pills = document.querySelectorAll('#tgp-table-filters .pill, button.pill[data-filter]');
     pills.forEach(pill => {
       pill.addEventListener('click', (e) => {
@@ -203,9 +218,10 @@ export default class TGPController {
     const p = controller.tgpPagination;
     
     let filtered = tgpList.filter(t => {
-      if (p.filter === 'all') return true;
-      if (p.filter === 'online') return t.source === 'online';
-      return t.status === p.filter;
+      if (p.filter !== 'all' && p.filter !== 'online' && t.status !== p.filter) return false;
+      if (p.filter === 'online' && t.source !== 'online') return false;
+      if (p.gate && p.gate !== 'all' && t.gate !== p.gate) return false;
+      return true;
     });
     
     // Sort by createdAt descending

@@ -34,6 +34,7 @@ export default class AppModel {
     this.exitLogs = readCache('pgp_logs', []);
     this.tgp = readCache('pgp_tgp', []);
     this.users = readCache('pgp_users', []);
+    this.gates = readCache('pgp_gates', []);
     this.emailQueue = readCache('pgp_email_queue', []);
 
     // Session management
@@ -74,6 +75,7 @@ export default class AppModel {
       this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       this.tgp = data.temporary_passes || [];
       this.users = data.users || [];
+      this.gates = (data.gates || []).map(g => this.mapGateFromSheet(g));
 
       // Cache to localStorage
       this.cacheAll();
@@ -180,6 +182,30 @@ export default class AppModel {
     localStorage.setItem('pgp_logs', JSON.stringify(this.exitLogs));
     localStorage.setItem('pgp_tgp', JSON.stringify(this.tgp));
     localStorage.setItem('pgp_users', JSON.stringify(this.users));
+    localStorage.setItem('pgp_gates', JSON.stringify(this.gates));
+  }
+
+  // ── Gate Field Mapping ────────────────────────────────────
+  mapGateFromSheet(g) {
+    return {
+      id: String(g.GateID || ''),
+      name: String(g.GateName || ''),
+      assignedGuard: String(g.AssignedGuard || ''),
+      status: String(g.Status || 'active')
+    };
+  }
+
+  mapGateToSheet(g) {
+    return {
+      GateID: g.id || '',
+      GateName: g.name || '',
+      AssignedGuard: g.assignedGuard || '',
+      Status: g.status || 'active'
+    };
+  }
+
+  getActiveGates() {
+    return this.gates.filter(g => g.status === 'active');
   }
 
   // ── Change Detection ─────────────────────────────────────
@@ -419,6 +445,29 @@ export default class AppModel {
 
   getTGP(id) {
     return this.tgp.find(t => t.id === id);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // GATE CRUD
+  // ════════════════════════════════════════════════════════════
+
+  async addGate(gate) {
+    this.gates.push(gate);
+    localStorage.setItem('pgp_gates', JSON.stringify(this.gates));
+    await SheetsService.addGate(this.mapGateToSheet(gate));
+  }
+
+  async updateGate(gate) {
+    const idx = this.gates.findIndex(g => g.id === gate.id);
+    if (idx !== -1) this.gates[idx] = gate;
+    localStorage.setItem('pgp_gates', JSON.stringify(this.gates));
+    await SheetsService.updateGate(this.mapGateToSheet(gate));
+  }
+
+  async removeGate(id) {
+    this.gates = this.gates.filter(g => g.id !== id);
+    localStorage.setItem('pgp_gates', JSON.stringify(this.gates));
+    await SheetsService.removeGate(id);
   }
 
   // ════════════════════════════════════════════════════════════

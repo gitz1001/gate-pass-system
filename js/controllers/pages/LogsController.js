@@ -3,7 +3,10 @@ import { debounce, generatePaginationHTML, bindPaginationEvents } from '../../ut
 
 export default class LogsController {
   static bind(controller) {
-    controller.pagination = { page: 1, limit: 25, query: '', gate: 'all', grade: 'all', timeFrom: '', timeTo: '' };
+    const defaultGate = controller.model.currentUser?.role === 'guard' && controller.model.currentUser?.gate
+      ? controller.model.currentUser.gate
+      : 'all';
+    controller.pagination = { page: 1, limit: 25, query: '', gate: defaultGate, grade: 'all', timeFrom: '', timeTo: '' };
     
     // Clear Logs
     const btnClear = document.getElementById('logs-btn-clear');

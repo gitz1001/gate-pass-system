@@ -6,7 +6,7 @@
 
 // Google Apps Script Web App endpoint (Sheets backend).
 export const SHEETS_API_URL =
-  'https://script.google.com/macros/s/AKfycbyl4OHPBclynyOHKsZfxeS0iGJM3r69Mpl6REoCxvdRpfIOKfRRjXhKRwl0T0yAyp3imw/exec';
+  'https://script.google.com/macros/s/AKfycbxRieTjHPfxGUTUPQwkI0-KGuaZ9t2UPByF7No-ark4ONO4Z98145YuPrSHUHebhXHJ6Q/exec';
 
 // The one and only login page. Everything that needs a login sends the
 // user here — there is no second, in-app login form.
@@ -32,7 +32,8 @@ export const STORAGE_KEYS = {
   writeQueue: 'pgp_write_queue',
   lastSync: 'pgp_last_sync',
   theme: 'pgp_theme',
-  sidebar: 'pgp_sidebar'
+  sidebar: 'pgp_sidebar',
+  gates: 'pgp_gates'
 };
 
 // Inactivity before the session is dropped (ms).

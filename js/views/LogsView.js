@@ -77,10 +77,10 @@ export default class LogsView {
           <div class="form-group logs-select-group">
             <select id="logs-filter-gate" class="form-input">
               <option value="all">All Gates</option>
-              <option value="Tropical Gate" ${userGate === 'Tropical Gate' ? 'selected' : ''}>Tropical Gate</option>
-              <option value="Gate 1" ${userGate === 'Gate 1' ? 'selected' : ''}>Gate 1</option>
-              <option value="Gate 2" ${userGate === 'Gate 2' ? 'selected' : ''}>Gate 2</option>
-              <option value="College Gate" ${userGate === 'College Gate' ? 'selected' : ''}>College Gate</option>
+              ${(model.getActiveGates && model.getActiveGates().length > 0
+                ? model.getActiveGates()
+                : [{ name: 'Tropical Gate' }, { name: 'Gate 1' }, { name: 'Gate 2' }, { name: 'College Gate' }, { name: 'Monarchs Gym' }]
+              ).map(g => `<option value="${escapeHTML(g.name)}" ${userGate === g.name ? 'selected' : ''}>${escapeHTML(g.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group logs-time-group">

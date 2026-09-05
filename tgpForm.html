@@ -430,6 +430,7 @@
             <option>Gate 1</option>
             <option>Gate 2</option>
             <option>College Gate</option>
+            <option>Monarchs Gym</option>
           </select>
           <div class="field-error" id="err-gate">Select a gate.</div>
         </div>
@@ -824,6 +825,27 @@
     btn.textContent = 'Submit TGP Request';
     btn.style.opacity = '';
   });
+
+  /* Load active gates from the API and rebuild the gate dropdown dynamically. */
+  async function loadGates() {
+    try {
+      var url = await apiEndpoint();
+      var res = await fetch(url + '?action=getGates&_t=' + Date.now(), { cache: 'no-store' });
+      var json = await res.json();
+      if (!json.success || !json.data || !json.data.length) return;
+      var active = json.data.filter(function(g) { return (g.Status || 'active').toLowerCase() === 'active'; });
+      if (!active.length) return;
+      var sel = $('gate');
+      if (!sel) return;
+      var current = sel.value;
+      sel.innerHTML = '<option value="">-- Select Gate --</option>' + active.map(function(g) {
+        var safe = g.GateName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        var selected = current === g.GateName ? ' selected' : '';
+        return '<option value="' + safe + '"' + selected + '>' + safe + '</option>';
+      }).join('');
+    } catch (_) { /* fall back to defaults already in the DOM */ }
+  }
+  loadGates();
 
   /* Initial state */
   populateSections();

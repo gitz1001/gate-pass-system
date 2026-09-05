@@ -11,7 +11,7 @@
 //     no longer abort the whole install (cache.addAll is all-or-nothing).
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'pgp-cache-v50.0.0';
+const CACHE_NAME = 'pgp-cache-v1.4.5';
 
 // Files that make up the app shell — always revalidated against the network.
 //
