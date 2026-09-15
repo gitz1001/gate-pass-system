@@ -22,18 +22,11 @@ import { loginUrl } from '../config.js';
 // motion-blurred, and scans that should land on the first present take
 // several tries. A downscaled frame a dozen times a second costs a fraction
 // of that and is no slower to react — a card still has to be held up.
-const SCAN_INTERVAL_MS = 80;    // ~12 decode attempts per second
-const SCAN_MAX_EDGE = 800;      // longest edge handed to jsQR, in pixels
-
-// Lazily load a browser script exactly once.  This is used by the QR scanner
-// so the 128 KB jsQR library does not block the main application download.
-// Keep the promise on window so repeated camera opens/switches share the same
-// in-flight load instead of injecting duplicate <script> tags.
+// Lazy-load a script once and resolve only after its global is available.
 function loadScriptOnce(src, globalName) {
   if (globalName && typeof window[globalName] !== 'undefined') {
     return Promise.resolve(window[globalName]);
   }
-
   const key = `__scriptLoad_${src}`;
   if (window[key]) return window[key];
 
@@ -44,11 +37,16 @@ function loadScriptOnce(src, globalName) {
         resolve(window[globalName]);
         return;
       }
-      existing.addEventListener('load', () => resolve(globalName ? window[globalName] : true), { once: true });
+      existing.addEventListener('load', () => {
+        if (globalName && typeof window[globalName] === 'undefined') {
+          reject(new Error(`${globalName} did not initialize after loading ${src}`));
+          return;
+        }
+        resolve(globalName ? window[globalName] : true);
+      }, { once: true });
       existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
       return;
     }
-
     const script = document.createElement('script');
     script.src = src;
     script.async = true;
@@ -69,6 +67,9 @@ function loadScriptOnce(src, globalName) {
 
   return window[key];
 }
+
+const SCAN_INTERVAL_MS = 80;    // ~12 decode attempts per second
+const SCAN_MAX_EDGE = 800;      // longest edge handed to jsQR, in pixels
 
 export default class AppController {
   constructor(model, view) {

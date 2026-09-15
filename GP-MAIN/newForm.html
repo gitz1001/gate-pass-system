@@ -364,6 +364,12 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+  .legal-notice { margin-top: 12px; text-align: center; font-size: 12px; line-height: 1.65; color: var(--text2); }
+  .legal-links { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 7px; }
+  .legal-links a { color: var(--purple); font-weight: 600; text-decoration: none; }
+  .legal-links a:hover, .legal-links a:focus-visible { text-decoration: underline; }
+  .legal-sep { color: #b4aec4; }
+  .dpa-notice { max-width: 590px; margin: 0 auto; }
   .msg {
     padding: 12px 14px;
     border-radius: 8px;
@@ -754,6 +760,20 @@
     <button type="submit" class="submit-btn" id="submitBtn">
       Submit Application
     </button>
+
+    <div class="legal-notice" aria-label="Privacy and terms information">
+      <div class="legal-links">
+        <a href="privacy-policy.html" target="_blank" rel="noopener">Public Privacy Policy</a>
+        <span class="legal-sep" aria-hidden="true">•</span>
+        <a href="terms-of-service.html" target="_blank" rel="noopener">Public Terms of Service</a>
+      </div>
+      <div class="dpa-notice">
+        <strong>Data Privacy Act of 2012:</strong> In accordance with Republic Act No. 10173,
+        the information collected through this form is used strictly for legitimate school
+        purposes, including student identification, gate pass administration, safety,
+        security, and authorized parent/guardian communication.
+      </div>
+    </div>
   </form>
 </div>
 
