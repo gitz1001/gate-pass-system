@@ -25,6 +25,51 @@ import { loginUrl } from '../config.js';
 const SCAN_INTERVAL_MS = 80;    // ~12 decode attempts per second
 const SCAN_MAX_EDGE = 800;      // longest edge handed to jsQR, in pixels
 
+// Lazily load a browser script exactly once.  This is used by the QR scanner
+// so the 128 KB jsQR library does not block the main application download.
+// Keep the promise on window so repeated camera opens/switches share the same
+// in-flight load instead of injecting duplicate <script> tags.
+function loadScriptOnce(src, globalName) {
+  if (globalName && typeof window[globalName] !== 'undefined') {
+    return Promise.resolve(window[globalName]);
+  }
+
+  const key = `__scriptLoad_${src}`;
+  if (window[key]) return window[key];
+
+  window[key] = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-lazy-script="${src}"]`);
+    if (existing) {
+      if (globalName && typeof window[globalName] !== 'undefined') {
+        resolve(window[globalName]);
+        return;
+      }
+      existing.addEventListener('load', () => resolve(globalName ? window[globalName] : true), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.dataset.lazyScript = src;
+    script.onload = () => {
+      if (globalName && typeof window[globalName] === 'undefined') {
+        reject(new Error(`${globalName} did not initialize after loading ${src}`));
+        return;
+      }
+      resolve(globalName ? window[globalName] : true);
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  }).catch(err => {
+    delete window[key];
+    throw err;
+  });
+
+  return window[key];
+}
+
 export default class AppController {
   constructor(model, view) {
     this.model = model;
@@ -738,7 +783,7 @@ export default class AppController {
         this.view.showToast("QR Scanner library failed to load. Please check internet connection.", "error");
         return;
       }
-      const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+      const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
 
       if (code && code.data) {
         this.resetCameraIdleTimeout();

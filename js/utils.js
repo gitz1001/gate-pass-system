@@ -315,7 +315,7 @@ export function renderVirtualIdCard(student, options = {}) {
   ].filter(Boolean).join(';');
 
   return `
-   <div id="${escapeHTML(captureId)}" data-name="${escapeHTML(name)}" style="${cardStyle};">
+    <div id="${escapeHTML(captureId)}" data-name="${escapeHTML(name)}" style="${cardStyle};">
 
       <div style="background:linear-gradient(135deg,#422467 0%,#291244 100%);padding:17px 16px 22px;color:#fff;display:flex;align-items:center;gap:11px;position:relative;flex-shrink:0;">
         <div style="width:40px;height:40px;background:#ffffff;border-radius:10px;padding:4px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 8px rgba(0,0,0,0.2);flex-shrink:0;box-sizing:border-box;">
@@ -357,7 +357,7 @@ export function renderVirtualIdCard(student, options = {}) {
         </div>
       </div>
 
-      <div style="background:#422467;padding:9px 10px;text-align:center;color:#f7fffe;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
+      <div style="background:#00c9b1;padding:9px 10px;text-align:center;color:#003d35;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
     </div>`;
 }
 
