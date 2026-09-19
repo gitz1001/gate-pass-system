@@ -4,6 +4,7 @@
   "private": true,
   "description": "Southville International School and Colleges e-Gatepass System",
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "nodemailer": "^6.9.16"
   }
 }
