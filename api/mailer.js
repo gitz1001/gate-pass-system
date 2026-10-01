@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const { rejected } = require('./_lib/request-guard');
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -58,6 +59,10 @@ function decodeCard(rawBase64, fileName) {
   }
 
   data = data.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data) || data.length < 16) return null;
+
+  const estimatedBytes = Math.floor((data.length * 3) / 4) - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
+  if (estimatedBytes <= 0 || estimatedBytes > MAX_ATTACHMENT_BYTES) return null;
 
   let buffer;
 
@@ -67,7 +72,7 @@ function decodeCard(rawBase64, fileName) {
     return null;
   }
 
-  if (!buffer || buffer.length === 0) {
+  if (!buffer || buffer.length === 0 || buffer.length > MAX_ATTACHMENT_BYTES) {
     return null;
   }
 
@@ -95,6 +100,8 @@ function decodeCard(rawBase64, fileName) {
     buffer[2] === 0xff
   ) {
     mime = 'image/jpeg';
+  } else {
+    return null;
   }
 
   const wantedExtension =
@@ -1101,6 +1108,10 @@ module.exports = async function handler(req, res) {
     'Content-Type',
     'application/json; charset=utf-8'
   );
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
 
   /*
    * Only POST is allowed.
@@ -1110,6 +1121,11 @@ module.exports = async function handler(req, res) {
       success: false,
       message: 'POST request required.'
     });
+  }
+
+  const contentLength = Number(req.headers && req.headers['content-length']);
+  if (Number.isFinite(contentLength) && contentLength > 12 * 1024 * 1024) {
+    return res.status(413).json({ success: false, message: 'Request payload is too large.' });
   }
 
   // Same open-relay exposure as /api/send-email: this handler is reachable at

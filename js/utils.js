@@ -1,3 +1,66 @@
+const _externalScriptPromises = new Map();
+
+export const EXTERNAL_SCRIPTS = Object.freeze({
+  qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  jszip: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+});
+
+/**
+ * Load a third-party browser script only when a feature needs it.
+ * Concurrent callers share the same Promise and failed loads are retryable.
+ */
+export function loadExternalScript(src, globalName) {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('External scripts require a browser environment.'));
+  }
+  if (!src) return Promise.reject(new Error('External script URL is required.'));
+  if (globalName && typeof window[globalName] !== 'undefined') {
+    return Promise.resolve(window[globalName]);
+  }
+
+  const existing = _externalScriptPromises.get(src);
+  if (existing) return existing;
+
+  const promise = new Promise((resolve, reject) => {
+    const current = Array.from(document.scripts).find(script => script.dataset.externalScriptSrc === src);
+    if (current) {
+      current.addEventListener('load', () => {
+        if (globalName && typeof window[globalName] === 'undefined') {
+          reject(new Error(`${globalName} did not initialize after loading the script.`));
+          return;
+        }
+        resolve(globalName ? window[globalName] : true);
+      }, { once: true });
+      current.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.dataset.externalScriptSrc = src;
+    script.onload = () => {
+      if (globalName && typeof window[globalName] === 'undefined') {
+        reject(new Error(`${globalName} did not initialize after loading the script.`));
+        return;
+      }
+      resolve(globalName ? window[globalName] : true);
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+
+  _externalScriptPromises.set(src, promise);
+  promise.catch(() => _externalScriptPromises.delete(src));
+  return promise;
+}
+
+export const ensureQRCodeLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.qrcode, 'QRCode');
+export const ensureHtml2CanvasLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.html2canvas, 'html2canvas');
+export const ensureJSZipLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.jszip, 'JSZip');
+
 export function escapeHTML(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -322,7 +385,7 @@ export function renderVirtualIdCard(student, options = {}) {
           <img src="SISC_logo.png" alt="SISC" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'">
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:900;letter-spacing:0.2px;line-height:1.1;text-transform:uppercase;">Southville International</div>
+          <div style="font-size:13px;font-weight:900;letter-spacing:0.2px;line-height:1.1;text-transform:uppercase;">Southville International School and Colleges</div>
           <div style="font-size:8.5px;font-weight:500;color:rgba(255,255,255,0.8);margin-top:3px;line-height:1.35;letter-spacing:0.1px;">1281 Tropical Ave Cor. Luxembourg St.<br>BF International, Las Pi&ntilde;as City</div>
         </div>
         <div style="position:absolute;bottom:-1px;left:0;right:0;height:20px;background:#ffffff;border-radius:20px 20px 0 0;"></div>
@@ -357,7 +420,7 @@ export function renderVirtualIdCard(student, options = {}) {
         </div>
       </div>
 
-      <div style="background:#00c9b1;padding:9px 10px;text-align:center;color:#003d35;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
+      <div style="background:#481F59;padding:9px 10px;text-align:center;color:#003d35;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
     </div>`;
 }
 

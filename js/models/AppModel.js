@@ -93,6 +93,13 @@ export default class AppModel {
 
     // Offline write queue (for writes that failed due to no internet)
     this.writeQueue = readCache('pgp_write_queue', []);
+
+    // Hot-path lookup indexes. They preserve the existing first-match behavior
+    // while avoiding repeated O(n) scans during dashboard/scanner renders.
+    this._studentByPassId = new Map();
+    this._studentByStudId = new Map();
+    this._tgpById = new Map();
+    this.rebuildIndexes();
   }
 
   // ════════════════════════════════════════════════════════════
@@ -115,6 +122,7 @@ export default class AppModel {
       this.tgp = data.temporary_passes || [];
       this.users = data.users || [];
       this.gates = (data.gates || []).map(g => this.mapGateFromSheet(g));
+      this.rebuildIndexes();
 
       // Cache to localStorage
       this.cacheAll();
@@ -246,6 +254,57 @@ export default class AppModel {
     };
   }
 
+  rebuildIndexes() {
+    this._studentByPassId.clear();
+    this._studentByStudId.clear();
+    this._tgpById.clear();
+
+    for (const student of this.students || []) {
+      // Preserve the original lookup semantics: getStudentByPassId matched
+      // either `id` OR `pgp`, while getStudentByStudId matched `studid` OR `id`.
+      // The first matching student wins, just like Array.prototype.find().
+      for (const key of [student.id, student.pgp]) {
+        if (key !== undefined && key !== null && !this._studentByPassId.has(key)) {
+          this._studentByPassId.set(key, student);
+        }
+      }
+      for (const key of [student.studid, student.id]) {
+        if (key !== undefined && key !== null && !this._studentByStudId.has(key)) {
+          this._studentByStudId.set(key, student);
+        }
+      }
+    }
+    for (const pass of this.tgp || []) {
+      if (pass.id !== undefined && pass.id !== null && !this._tgpById.has(pass.id)) {
+        this._tgpById.set(pass.id, pass);
+      }
+    }
+  }
+
+  _indexStudent(student) {
+    if (!student) return;
+    for (const key of [student.id, student.pgp]) {
+      if (key !== undefined && key !== null && !this._studentByPassId.has(key)) {
+        this._studentByPassId.set(key, student);
+      }
+    }
+    for (const key of [student.studid, student.id]) {
+      if (key !== undefined && key !== null && !this._studentByStudId.has(key)) {
+        this._studentByStudId.set(key, student);
+      }
+    }
+  }
+
+  _removeStudentFromIndexes(student) {
+    if (!student) return;
+    for (const key of [student.id, student.pgp]) {
+      if (key !== undefined && key !== null && this._studentByPassId.get(key) === student) this._studentByPassId.delete(key);
+    }
+    for (const key of [student.studid, student.id]) {
+      if (key !== undefined && key !== null && this._studentByStudId.get(key) === student) this._studentByStudId.delete(key);
+    }
+  }
+
   getActiveGates() {
     return this.gates.filter(g => g.status === 'active');
   }
@@ -333,6 +392,7 @@ export default class AppModel {
 
     // Add to local cache immediately
     this.students.push(student);
+    this._indexStudent(student);
     writeCache('pgp_students', withoutInlinePhotos(this.students));
 
     // Write to Sheet
@@ -347,6 +407,7 @@ export default class AppModel {
 
   async removeStudent(id) {
     this.students = this.students.filter(s => s.id !== id);
+    this.rebuildIndexes();
     writeCache('pgp_students', withoutInlinePhotos(this.students));
 
     try {
@@ -358,11 +419,11 @@ export default class AppModel {
   }
 
   getStudentByPassId(id) {
-    return this.students.find(s => s.id === id || s.pgp === id);
+    return this._studentByPassId.get(id);
   }
 
   getStudentByStudId(studid) {
-    return this.students.find(s => s.studid === studid || s.id === studid);
+    return this._studentByStudId.get(studid);
   }
 
   async updateStudentStatus(id, status) {
@@ -395,6 +456,7 @@ export default class AppModel {
 
     // Merge updates into local cache
     this.students[idx] = { ...this.students[idx], ...updatedStudent };
+    this.rebuildIndexes();
     writeCache('pgp_students', withoutInlinePhotos(this.students));
 
     // Write full row to Sheet
@@ -454,6 +516,7 @@ export default class AppModel {
 
   async addTGP(tgpEntry) {
     this.tgp.unshift(tgpEntry);
+    if (tgpEntry.id !== undefined && tgpEntry.id !== null) this._tgpById.set(tgpEntry.id, tgpEntry);
     writeCache('pgp_tgp', this.tgp);
 
     try {
@@ -465,7 +528,7 @@ export default class AppModel {
   }
 
   async updateTGPStatus(id, status) {
-    const pass = this.tgp.find(t => t.id === id);
+    const pass = this._tgpById.get(id) || this.tgp.find(t => t.id === id);
     if (pass) {
       pass.status = status;
       writeCache('pgp_tgp', this.tgp);

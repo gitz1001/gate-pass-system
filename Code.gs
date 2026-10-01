@@ -34,9 +34,8 @@
 //    highest number then appends; two applications arriving together produced
 //    the same ID. That block now runs under a script lock.
 //
-// 6. updateTGPStatus ACCEPTS POST.  It still accepts GET for the current client,
-//    but a GET request should never change data — move the client over when you
-//    can.
+// 6. updateTGPStatus is POST-only.  A state-changing action is never performed
+//    through GET, preventing a bookmarked/prefetched URL from mutating data.
 //
 // 7. UNKNOWN ACTIONS REPORT FAILURE.  They used to come back as
 //    { success: true, data: { error: ... } }, which reads as success.
@@ -127,12 +126,14 @@ function handleRequest(e) {
 
       // ── UPDATE operations ──
       case 'updateTGPStatus':
-        // Accepts a POST body, falling back to query parameters so the current
-        // client keeps working. A GET should not mutate data — move the client
-        // to POST when convenient.
+        // TGP status changes are state-changing operations and must use POST.
+        // This prevents a bookmarked/prefetched GET URL from mutating data.
+        if (!e || !e.postData || !e.postData.contents) {
+          throw new Error('POST request required for updateTGPStatus.');
+        }
         var tgp = readBody_(e);
-        var tgpId = tgp.id || params.id;
-        var tgpStatus = tgp.status || params.status;
+        var tgpId = tgp.id;
+        var tgpStatus = tgp.status;
         result = updateField('temporary_passes', tgpId, 'status', tgpStatus);
         break;
 
@@ -190,8 +191,15 @@ function sendJSON(obj) {
  */
 function readBody_(e) {
   if (!e || !e.postData || !e.postData.contents) return {};
+  var raw = String(e.postData.contents);
+  // Current browser uploads are compressed WebP and stay well below this limit.
+  // Refusing unusually large JSON prevents accidental/malicious payloads from
+  // consuming Apps Script memory while preserving every supported request shape.
+  if (raw.length > 12 * 1024 * 1024) {
+    throw new Error('Request body is too large.');
+  }
   try {
-    return JSON.parse(e.postData.contents) || {};
+    return JSON.parse(raw) || {};
   } catch (err) {
     throw new Error('Request body was not valid JSON.');
   }
@@ -221,7 +229,10 @@ function normalizeCell_(header, value) {
  * Each object uses the header row as keys.
  */
 function getSheetData(sheetName) {
-  var ss = getConfiguredSpreadsheet_();
+  return getSheetDataFromSpreadsheet_(getConfiguredSpreadsheet_(), sheetName);
+}
+
+function getSheetDataFromSpreadsheet_(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
     throw new Error('Sheet tab "' + sheetName + '" not found. Please create it in your spreadsheet.');
@@ -252,12 +263,13 @@ function getSheetData(sheetName) {
  * Get ALL data from all 4 tabs in a single call.
  */
 function getAllData() {
+  var ss = getConfiguredSpreadsheet_();
   return {
-    students: getSheetData('students'),
-    scan_logs: getSheetData('scan_logs'),
-    temporary_passes: getSheetData('temporary_passes'),
-    users: getSheetData('users'),
-    gates: getConfiguredSpreadsheet_().getSheetByName('gates') ? getSheetData('gates') : []
+    students: getSheetDataFromSpreadsheet_(ss, 'students'),
+    scan_logs: getSheetDataFromSpreadsheet_(ss, 'scan_logs'),
+    temporary_passes: getSheetDataFromSpreadsheet_(ss, 'temporary_passes'),
+    users: getSheetDataFromSpreadsheet_(ss, 'users'),
+    gates: ss.getSheetByName('gates') ? getSheetDataFromSpreadsheet_(ss, 'gates') : []
   };
 }
 
@@ -510,12 +522,18 @@ function uploadPhotoToDrive_(data) {
     throw new Error('Photos must be converted to WebP before upload.');
   }
   var kind = String(data.kind || 'pgp').toLowerCase() === 'tgp' ? 'tgp' : 'pgp';
+  var encoded = String(data.base64).replace(/^data:image\/webp;base64,/i, '').replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length < 16) throw new Error('Photo data is invalid.');
+  var bytes = Utilities.base64Decode(encoded);
+  if (bytes.length === 0 || bytes.length > 8 * 1024 * 1024) throw new Error('Photo is too large.');
+  if (bytes.length < 12 || bytes[0] !== 82 || bytes[1] !== 73 || bytes[2] !== 70 || bytes[3] !== 70 || bytes[8] !== 87 || bytes[9] !== 69 || bytes[10] !== 66 || bytes[11] !== 80) {
+    throw new Error('Photo is not a valid WebP image.');
+  }
   var safeId = String(data.studentId).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 120) || 'photo';
   var fileName = safeId + '.webp';
   var folder = getPhotoSubfolder_(kind);
   var existing = folder.getFilesByName(fileName);
   while (existing.hasNext()) existing.next().setTrashed(true);
-  var bytes = Utilities.base64Decode(String(data.base64).replace(/^data:image\/webp;base64,/i, ''));
   var blob = Utilities.newBlob(bytes, 'image/webp', fileName);
   var file = folder.createFile(blob);
   // Do not call setSharing() here. The folder's sharing policy controls access;

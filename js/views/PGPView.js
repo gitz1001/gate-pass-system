@@ -168,7 +168,7 @@ export default class PGPView {
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--primary); font-weight: 700; font-size: 10px;">
-                ${hasPhoto(p.photo) ? `<img src="${escapeHTML(resolvePhotoUrl(p.photo))}" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML(p.name.substring(0, 2).toUpperCase())}
+                ${hasPhoto(p.photo) ? `<img src="${escapeHTML(resolvePhotoUrl(p.photo))}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : escapeHTML(p.name.substring(0, 2).toUpperCase())}
               </div>
               <div>
                 <div style="font-weight: 600;">${escapeHTML(p.name)}</div>

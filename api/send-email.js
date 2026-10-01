@@ -13,6 +13,10 @@ const BORDER = '#e3dce8';
 const PANEL = '#f8f5fa';
 const FONT = "Arial, Helvetica, sans-serif";
 
+let _oauthTokenCache = null;
+let _oauthTokenPromise = null;
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
 function clean(value, fallback = '') {
   const text = value == null ? '' : String(value).trim();
   return text || fallback;
@@ -75,17 +79,33 @@ function decodeAttachment(body) {
   const raw = clean(body.attachment_base64);
   if (!raw) return null;
 
+  const declaredName = path.basename(clean(body.attachment_name, 'Permanent_Gate_Pass.jpg'));
   const base64 = raw.replace(/^data:image\/[^;]+;base64,/i, '').replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64) || base64.length < 16) return null;
+
+  // Reject payloads that cannot fit within a bounded decoded attachment size
+  // before allocating a large Buffer.
+  const estimatedBytes = Math.floor((base64.length * 3) / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+  if (estimatedBytes <= 0 || estimatedBytes > MAX_ATTACHMENT_BYTES) return null;
+
   const buffer = Buffer.from(base64, 'base64');
-  if (!buffer.length) return null;
+  if (!buffer.length || buffer.length > MAX_ATTACHMENT_BYTES) return null;
 
-  let extension = /\.png$/i.test(clean(body.attachment_name)) ? '.png' : '.jpg';
-  let contentType = extension === '.png' ? 'image/png' : 'image/jpeg';
-  const nameBase = path.basename(clean(body.attachment_name, 'Permanent_Gate_Pass' + extension));
-  const withoutExt = nameBase.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '_') || 'Permanent_Gate_Pass';
-  const filename = withoutExt + extension;
+  let contentType = '';
+  let extension = '';
+  if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47 && buffer[4] === 0x0d && buffer[5] === 0x0a && buffer[6] === 0x1a && buffer[7] === 0x0a) {
+    contentType = 'image/png';
+    extension = '.png';
+  } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    contentType = 'image/jpeg';
+    extension = '.jpg';
+  } else {
+    return null;
+  }
 
-  return { buffer, contentType, filename };
+  const baseName = path.basename(declaredName, path.extname(declaredName))
+    .replace(/[^a-zA-Z0-9_-]+/g, '_') || 'Permanent_Gate_Pass';
+  return { buffer, contentType, filename: baseName + extension };
 }
 
 function detailsTable(rows) {
@@ -240,33 +260,47 @@ function getOAuthConfig() {
 }
 
 async function getAccessToken({ clientId, clientSecret, refreshToken }) {
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token'
-    })
+  const now = Date.now();
+  if (_oauthTokenCache && _oauthTokenCache.expiresAt > now + 60_000) {
+    return _oauthTokenCache.token;
+  }
+  if (_oauthTokenPromise) return _oauthTokenPromise;
+
+  _oauthTokenPromise = (async () => {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.access_token) {
+      const detail = [data.error, data.error_description].filter(Boolean).join(': ') ||
+        'No access token returned.';
+      throw new Error(`Google OAuth token refresh failed (HTTP ${response.status}): ${detail}`);
+    }
+
+    const expiresInMs = Math.max(60_000, Number(data.expires_in || 3600) * 1000);
+    _oauthTokenCache = { token: data.access_token, expiresAt: Date.now() + expiresInMs };
+    return data.access_token;
+  })().finally(() => {
+    _oauthTokenPromise = null;
   });
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) {
-    // Report Google's code *and* its description. The code is the part that
-    // says what to do — invalid_grant means re-mint the token, invalid_client
-    // means the id/secret pair is wrong — and reporting only the description
-    // threw that away.
-    const detail = [data.error, data.error_description].filter(Boolean).join(': ') ||
-      'No access token returned.';
-    throw new Error(`Google OAuth token refresh failed (HTTP ${response.status}): ${detail}`);
-  }
-  return data.access_token;
+  return _oauthTokenPromise;
 }
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
 
   // GET ?selftest=1 answers one question — can this deployment obtain a Gmail
   // access token — and sends nothing. A failing send returns 502 with Google's
@@ -429,6 +463,11 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const contentLength = Number(req.headers && req.headers['content-length']);
+  if (Number.isFinite(contentLength) && contentLength > 12 * 1024 * 1024) {
+    return res.status(413).json({ success: false, message: 'Request payload is too large.' });
+  }
+
   const body = parseBody(req);
   const toEmail = clean(body.to_email);
   if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
@@ -448,6 +487,15 @@ module.exports = async function handler(req, res) {
     exitTime: clean(body.exit_time),
     exitDate: clean(body.exit_date)
   };
+
+  for (const [key, max] of [
+    ['to_name', 200], ['student_name', 200], ['grade', 120], ['pgp_no', 80],
+    ['tgp_no', 80], ['valid_date', 80], ['gate_name', 120], ['exit_time', 80], ['exit_date', 120]
+  ]) {
+    if (String(body[key] ?? '').length > max) {
+      return res.status(400).json({ success: false, message: `Field ${key} is too long.` });
+    }
+  }
 
   const needsAttachment = emailType === 'pgp_delivery' || emailType === 'tgp_delivery';
   const attachment = needsAttachment ? decodeAttachment(body) : null;

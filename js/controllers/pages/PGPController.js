@@ -1,5 +1,5 @@
 import Dialog from '../../services/Dialog.js';
-import { debounce, escapeHTML, generatePaginationHTML, bindPaginationEvents, renderPassCard, renderPassCardQR, waitForImages } from '../../utils.js';
+import { debounce, escapeHTML, generatePaginationHTML, bindPaginationEvents, renderPassCard, renderPassCardQR, waitForImages, ensureQRCodeLoaded, ensureHtml2CanvasLoaded } from '../../utils.js';
 
 export default class PGPController {
   static bind(controller) {
@@ -148,13 +148,17 @@ export default class PGPController {
 
     // --- VIEW PASS LOGIC ---
     document.querySelectorAll('.btn-view-pgp').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const student = controller.model.students.find(s => s.id === id);
         if (!student) return;
 
         const target = document.getElementById('pgp-card-render-target');
         if (!target) return;
+        try { await ensureQRCodeLoaded(); } catch (err) {
+          controller.view.showToast('QR library could not be loaded. Check your connection and try again.', 'error');
+          return;
+        }
 
         target.innerHTML = renderPassCard(student, {
           captureId: 'pgpcard-capture',
@@ -185,15 +189,11 @@ export default class PGPController {
       // Both come from a CDN, so they are the first thing to go missing on a
       // bad connection. Without them the card cannot be drawn, and sending
       // anyway would deliver an email promising a gate pass it does not carry.
-      const missing = [];
-      if (typeof html2canvas === 'undefined') missing.push('html2canvas');
-      if (typeof QRCode === 'undefined') missing.push('qrcode.js');
-
-      if (missing.length) {
+      try {
+        await Promise.all([ensureHtml2CanvasLoaded(), ensureQRCodeLoaded()]);
+      } catch (err) {
         statusText.innerHTML = '<strong>Cannot send.</strong><br>'
-          + '<span style="color:#ef4444;font-size:12px;">'
-          + `${missing.join(' and ')} failed to load, so the pass card cannot be `
-          + 'generated. Reconnect to the internet and reload the page.</span>';
+          + '<span style="color:#ef4444;font-size:12px;">Pass-card libraries failed to load. Reconnect to the internet and try again.</span>';
         progressBar.style.width = '100%';
         btnClose.style.display = 'block';
         return;

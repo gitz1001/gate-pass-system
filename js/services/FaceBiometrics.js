@@ -1,3 +1,4 @@
+import { loadExternalScript } from '../utils.js';
 // ════════════════════════════════════════════════════════════════
 // FaceBiometrics — Client-side face recognition using face-api.js
 // ════════════════════════════════════════════════════════════════
@@ -16,6 +17,10 @@ class FaceBiometrics {
   constructor() {
     this.modelsLoaded = false;
     this.loading = false;
+    this.loadingPromise = null;
+    this._enrolledCache = null;
+    this._allEnrolledCache = null;
+    this._allEnrolledStudentsRef = null;
   }
 
   /**
@@ -25,55 +30,40 @@ class FaceBiometrics {
    */
   async init() {
     if (this.modelsLoaded) return true;
-    if (this.loading) return false; // Prevent duplicate loads
+    if (this.loadingPromise) return this.loadingPromise;
 
     this.loading = true;
-    try {
-      // face-api.js is intentionally lazy-loaded: it is a large dependency and
-      // most users never open face scanning. Load it only when this service is used.
-      if (typeof faceapi === 'undefined') {
-        await new Promise((resolve, reject) => {
-          const existing = document.querySelector('script[data-face-api-loader]');
-          if (existing) {
-            existing.addEventListener('load', resolve, { once: true });
-            existing.addEventListener('error', reject, { once: true });
-            return;
-          }
-          const script = document.createElement('script');
-          script.src = './js/lib/face-api.min.js';
-          script.async = true;
-          script.dataset.faceApiLoader = '1';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Could not load face recognition library.'));
-          document.head.appendChild(script);
-        });
+    this.loadingPromise = (async () => {
+      try {
+        if (typeof faceapi === 'undefined') {
+          await loadExternalScript('./js/lib/face-api.min.js', 'faceapi');
+        }
+
+        if (typeof faceapi === 'undefined') {
+          throw new Error('face-api.js library did not initialize.');
+        }
+
+        console.log('[FaceBiometrics] Loading AI models...');
+
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+
+        this.modelsLoaded = true;
+        console.log('[FaceBiometrics] AI models loaded successfully.');
+        return true;
+      } catch (err) {
+        console.error('[FaceBiometrics] Failed to load AI models:', err);
+        return false;
+      } finally {
+        this.loading = false;
+        this.loadingPromise = null;
       }
+    })();
 
-      if (typeof faceapi === 'undefined') {
-        throw new Error('face-api.js library did not initialize.');
-      }
-
-      console.log('[FaceBiometrics] Loading AI models...');
-
-      // Load the three models we need:
-      // 1. TinyFaceDetector — lightweight face detection (where is the face?)
-      // 2. FaceLandmark68TinyNet — facial landmarks (eyes, nose, mouth positions)
-      // 3. FaceRecognitionNet — face descriptor extraction (128-number identity vector)
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
-
-      this.modelsLoaded = true;
-      this.loading = false;
-      console.log('[FaceBiometrics] ✅ AI models loaded successfully.');
-      return true;
-    } catch (err) {
-      console.error('[FaceBiometrics] ❌ Failed to load AI models:', err);
-      this.loading = false;
-      return false;
-    }
+    return this.loadingPromise;
   }
 
   /**
@@ -179,15 +169,18 @@ class FaceBiometrics {
    * @returns {Array<{id: string, descriptor: Float32Array}>}
    */
   getEnrolledFaces() {
+    if (this._enrolledCache) return this._enrolledCache;
     try {
       const raw = JSON.parse(localStorage.getItem('pgp_face_descriptors') || '[]');
-      return raw.map(entry => ({
+      this._enrolledCache = raw.map(entry => ({
         id: entry.id,
         descriptor: this.arrayToDescriptor(entry.descriptor)
       }));
+      return this._enrolledCache;
     } catch (err) {
       console.error('[FaceBiometrics] Error loading enrolled faces:', err);
-      return [];
+      this._enrolledCache = [];
+      return this._enrolledCache;
     }
   }
 
@@ -208,6 +201,7 @@ class FaceBiometrics {
     });
 
     localStorage.setItem('pgp_face_descriptors', JSON.stringify(filtered));
+    this._invalidateFaceCaches();
     console.log(`[FaceBiometrics] ✅ Enrolled face for student: ${studentId}`);
   }
 
@@ -219,6 +213,7 @@ class FaceBiometrics {
     const enrolled = JSON.parse(localStorage.getItem('pgp_face_descriptors') || '[]');
     const filtered = enrolled.filter(e => e.id !== studentId);
     localStorage.setItem('pgp_face_descriptors', JSON.stringify(filtered));
+    this._invalidateFaceCaches();
     console.log(`[FaceBiometrics] Removed face for student: ${studentId}`);
   }
 
@@ -324,15 +319,26 @@ class FaceBiometrics {
    * @returns {Array<{id: string, descriptor: Float32Array}>}
    */
   getAllEnrolledFaces(students = []) {
+    if (this._allEnrolledCache && this._allEnrolledStudentsRef === students) {
+      return this._allEnrolledCache;
+    }
+
     const localFaces = this.getEnrolledFaces();
     const syncedFaces = this.getDescriptorsFromStudents(students);
 
-    // Merge: synced overrides local for same student ID
     const merged = new Map();
     for (const f of localFaces) merged.set(f.id, f);
-    for (const f of syncedFaces) merged.set(f.id, f); // Override with synced
+    for (const f of syncedFaces) merged.set(f.id, f);
 
-    return Array.from(merged.values());
+    this._allEnrolledCache = Array.from(merged.values());
+    this._allEnrolledStudentsRef = students;
+    return this._allEnrolledCache;
+  }
+
+  _invalidateFaceCaches() {
+    this._enrolledCache = null;
+    this._allEnrolledCache = null;
+    this._allEnrolledStudentsRef = null;
   }
 }
 

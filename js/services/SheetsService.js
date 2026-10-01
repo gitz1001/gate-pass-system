@@ -12,7 +12,23 @@ export default class SheetsService {
   static async get(action, params = {}) {
     const query = new URLSearchParams({ action, ...params, _t: Date.now() }).toString();
     const url = `${API_URL}?${query}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    let res;
+    try {
+      res = await fetch(url, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error('Sheets API request timed out after 30 seconds.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error(`Sheets API returned HTTP ${res.status}`);
     let json;
     try {
@@ -26,11 +42,14 @@ export default class SheetsService {
 
   static async post(action, body = {}) {
     const url = `${API_URL}?action=${action}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(body)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', Accept: 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
       });
       if (!res.ok) throw new Error(`Sheets API returned HTTP ${res.status}`);
       let json;
@@ -42,9 +61,14 @@ export default class SheetsService {
       if (!json.success) throw new Error(json.error || 'API error');
       return json.data;
     } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error('Sheets API request timed out after 30 seconds.');
+      }
       console.error('Sheets API POST Error:', err);
       // Note: Callers handle errors with toast notifications — no alert() needed
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -89,7 +113,7 @@ export default class SheetsService {
   }
 
   static async updateTGPStatus(id, status) {
-    return this.get('updateTGPStatus', { id, status });
+    return this.post('updateTGPStatus', { id, status });
   }
 
   // ── Users ─────────────────────────────────────────────────

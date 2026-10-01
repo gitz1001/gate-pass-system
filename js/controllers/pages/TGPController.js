@@ -1,4 +1,4 @@
-import { resolvePhotoUrl, hasPhoto, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages, compressImageToBlob, uploadPhotoLocally, renderQRCodeInto } from '../../utils.js';
+import { resolvePhotoUrl, hasPhoto, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages, compressImageToBlob, uploadPhotoLocally, renderQRCodeInto, ensureQRCodeLoaded, ensureHtml2CanvasLoaded } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
 import { setButtonLoading } from '../../views/AppView.js';
 
@@ -251,7 +251,7 @@ export default class TGPController {
 
     // View Pass buttons
     document.querySelectorAll('.btn-view-tgp').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const tgpId = e.currentTarget.dataset.id;
         const tgp = controller.model.tgp.find(t => t.id === tgpId);
         if (!tgp) return;
@@ -260,6 +260,13 @@ export default class TGPController {
         const sName = tgp.name || (student ? student.name : 'Unknown Student');
         const sGrade = (tgp.grade ? `${tgp.grade}${tgp.section ? ' - ' + tgp.section : ''}` : '') || (student ? `${student.grade}${student.section ? ' - ' + student.section : ''}` : '');
         const dateStr = new Date(tgp.validDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+
+        try {
+          await ensureQRCodeLoaded();
+        } catch (err) {
+          controller.view.showToast('QR library could not be loaded. Check your connection and try again.', 'error');
+          return;
+        }
 
         const photoHtml = (student && hasPhoto(student.photo))
           ? `<img src="${resolvePhotoUrl(student.photo)}" style="width:100%;height:100%;object-fit:cover;">`
@@ -339,6 +346,12 @@ export default class TGPController {
         if (!captureArea) return;
         btnDownload.innerHTML = 'Generating...';
         btnDownload.disabled = true;
+        try { await ensureHtml2CanvasLoaded(); } catch (err) {
+          controller.view.showToast('Image export library could not be loaded. Please check your connection.', 'error');
+          btnDownload.innerHTML = 'Download Image';
+          btnDownload.disabled = false;
+          return;
+        }
         // Same pair as the permanent pass download: let the images decode,
         // and request them with CORS so a photo served from another origin
         // can actually be drawn into the canvas.
@@ -379,6 +392,7 @@ export default class TGPController {
         btnEmail.innerHTML = 'Sending…';
 
         try {
+          await ensureHtml2CanvasLoaded();
           await waitForImages(captureArea);
           const canvas = await html2canvas(captureArea, { scale: 3, useCORS: true });
           const base64 = canvas.toDataURL('image/png');

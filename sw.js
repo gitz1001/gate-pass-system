@@ -11,7 +11,7 @@
 //     no longer abort the whole install (cache.addAll is all-or-nothing).
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'pgp-cache-v1.4.8';
+const CACHE_NAME = 'pgp-cache-v1.4.9';
 
 // Files that make up the app shell — always revalidated against the network.
 //
@@ -72,6 +72,9 @@ const STATIC_ASSETS = [
   './manifest.json'
 ];
 
+// Third-party feature libraries. These stay in the SW precache so QR/card export
+// features remain available offline after installation, while app.html no longer
+// downloads them eagerly on every page load.
 const CDN_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',

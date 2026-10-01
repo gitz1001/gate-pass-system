@@ -80,6 +80,8 @@ export default class AppController {
     this.isScanPaused = false;
     this.scanResultTimeout = null;
     this.lastScannedStudents = {}; // Track student scans for 15s cooldown
+    this._emailQueueProcessing = false;
+    this._faceOverlayCtx = null;
 
     this.init();
   }
@@ -162,21 +164,27 @@ export default class AppController {
     throw lastError || new Error('No email endpoint is available.');
   }
   async processEmailQueue() {
+    if (this._emailQueueProcessing) return;
     if (!this.model.emailQueue || this.model.emailQueue.length === 0) return;
     if (!navigator.onLine) return;
 
+    this._emailQueueProcessing = true;
     console.log(`Attempting to send ${this.model.emailQueue.length} queued emails...`);
 
-    while (this.model.emailQueue.length > 0) {
-      const params = this.model.emailQueue[0];
-      try {
-        await this.sendParentEmail(params);
-        console.log('Queued email sent successfully');
-        await this.model.removeEmailFromQueue(0);
-      } catch (err) {
-        console.error('Queued email failed:', err);
-        break; // Stop processing if one fails (no internet)
+    try {
+      while (this.model.emailQueue.length > 0) {
+        const params = this.model.emailQueue[0];
+        try {
+          await this.sendParentEmail(params);
+          console.log('Queued email sent successfully');
+          await this.model.removeEmailFromQueue(0);
+        } catch (err) {
+          console.error('Queued email failed:', err);
+          break; // Stop processing if one fails (no internet)
+        }
       }
+    } finally {
+      this._emailQueueProcessing = false;
     }
   }
 
@@ -1073,7 +1081,10 @@ export default class AppController {
       video.style.display = 'block';
       if (startUi) startUi.style.display = 'none';
       if (overlayCanvas) overlayCanvas.style.display = 'block';
-      video.play();
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(err => console.warn('Face video play interrupted:', err.name));
+      }
       this.faceScanActive = true;
 
       // Start the face detection loop
@@ -1100,6 +1111,7 @@ export default class AppController {
 
   stopFaceCamera() {
     this.faceScanActive = false;
+    this._faceOverlayCtx = null;
     if (this.faceStream) {
       this.faceStream.getTracks().forEach(track => track.stop());
       this.faceStream = null;
@@ -1126,10 +1138,17 @@ export default class AppController {
     if (!video || !overlayCanvas) return;
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      // Resize overlay canvas to match video
-      overlayCanvas.width = video.videoWidth;
-      overlayCanvas.height = video.videoHeight;
-      const ctx = overlayCanvas.getContext('2d');
+      // Resize only when the camera mode changes; resizing a canvas resets its
+      // backing store and allocates again on every detection pass.
+      if (overlayCanvas.width !== video.videoWidth || overlayCanvas.height !== video.videoHeight) {
+        overlayCanvas.width = video.videoWidth;
+        overlayCanvas.height = video.videoHeight;
+        this._faceOverlayCtx = null;
+      }
+      if (!this._faceOverlayCtx) {
+        this._faceOverlayCtx = overlayCanvas.getContext('2d');
+      }
+      const ctx = this._faceOverlayCtx;
       ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
       // Detect face
@@ -1242,8 +1261,7 @@ export default class AppController {
         }
       } else {
         // No face detected
-        const ctx2 = overlayCanvas.getContext('2d');
-        ctx2.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         if (statusOverlay) {
           statusOverlay.textContent = this.faceMode === 'enroll' ? 'Position your face in frame...' : 'Scanning... No face detected';
           statusOverlay.style.background = 'rgba(0,0,0,0.7)';

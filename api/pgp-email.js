@@ -1,6 +1,10 @@
 const sendEmail = require('./send-email');
 
 module.exports = async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'POST request required.' });
   }

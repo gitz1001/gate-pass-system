@@ -1,4 +1,4 @@
-import { escapeHTML, compressImageToBlob, resolvePhotoUrl, hasPhoto, generatePGP, CURRENT_SCHOOL_YEAR, debounce, generateQRToken, uploadPhotoLocally, generatePaginationHTML, bindPaginationEvents, renderVirtualIdCard, renderVirtualIdCardQR, waitForImages } from '../../utils.js';
+import { escapeHTML, compressImageToBlob, resolvePhotoUrl, hasPhoto, generatePGP, CURRENT_SCHOOL_YEAR, debounce, generateQRToken, uploadPhotoLocally, generatePaginationHTML, bindPaginationEvents, renderVirtualIdCard, renderVirtualIdCardQR, waitForImages, ensureQRCodeLoaded, ensureHtml2CanvasLoaded, ensureJSZipLoaded } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
 import Icons from '../../icons.js';
 import { setButtonLoading } from '../../views/AppView.js';
@@ -665,7 +665,7 @@ export default class StudentsController {
     });
 
     document.querySelectorAll('.btn-edit-student').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const student = controller.model.students.find(s => String(s.id) === String(id));
         const editModal = document.getElementById('modal-edit-student');
@@ -727,11 +727,17 @@ export default class StudentsController {
     const btnCloseId = document.getElementById('btn-close-idcard');
     if (btnCloseId && modalId) btnCloseId.addEventListener('click', () => modalId.style.display = 'none');
     document.querySelectorAll('.btn-view-id').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
         const student = controller.model.students.find(s => String(s.id) === String(id));
         if (!student) return;
         const target = document.getElementById('idcard-render-target');
+        try {
+          await ensureQRCodeLoaded();
+        } catch (err) {
+          controller.view.showToast('QR library could not be loaded. Check your connection and try again.', 'error');
+          return;
+        }
         
         target.innerHTML = renderVirtualIdCard(student, { captureId: 'idcard-capture', qrId: 'idcard-qrcode' });
         renderVirtualIdCardQR('idcard-qrcode', student);
@@ -745,6 +751,12 @@ export default class StudentsController {
         if (!captureArea) return;
         btnDownload.innerHTML = 'Generating...';
         btnDownload.disabled = true;
+        try { await ensureHtml2CanvasLoaded(); } catch (err) {
+          controller.view.showToast('Image export library could not be loaded. Please check your connection.', 'error');
+          btnDownload.innerHTML = `${Icons['download'](14)} Download Image`;
+          btnDownload.disabled = false;
+          return;
+        }
         // Strip box-shadow before capture to avoid ugly outline in exported image
         const origShadow = captureArea.style.boxShadow;
         captureArea.style.boxShadow = 'none';
@@ -787,17 +799,19 @@ export default class StudentsController {
         return;
       }
 
-      if (!window.JSZip) {
-        controller.view.showToast('ZIP library not loaded. Please wait or reload the page.', 'error');
-        return;
-      }
-
       const confirmed = await Dialog.confirm(
         'Export All IDs',
         `This will generate and download a ZIP file containing the ID cards for all ${activeStudents.length} active students. This process may take a minute. Continue?`,
         { confirmText: 'Yes, Export All', type: 'primary' }
       );
       if (!confirmed) return;
+
+      try {
+        await Promise.all([ensureHtml2CanvasLoaded(), ensureQRCodeLoaded(), ensureJSZipLoaded()]);
+      } catch (err) {
+        controller.view.showToast('Export libraries could not be loaded. Please check your connection and try again.', 'error');
+        return;
+      }
 
       btnExport.innerHTML = 'Generating...';
       btnExport.disabled = true;
