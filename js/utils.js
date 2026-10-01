@@ -1,65 +1,145 @@
 const _externalScriptPromises = new Map();
 
 export const EXTERNAL_SCRIPTS = Object.freeze({
-  qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
-  html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  jszip: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  // Primary QR path matches the original working application. The loader
+  // below provides fallback URLs only when QRCode.js is not already present.
+  qrcode: [
+    'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
+    'https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js'
+  ],
+  html2canvas: [
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+    'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+  ],
+  jszip: [
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+    'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+    'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js'
+  ]
 });
+
+function waitForGlobal(globalName, timeoutMs = 8000) {
+  if (!globalName || typeof window[globalName] !== 'undefined') {
+    return Promise.resolve(globalName ? window[globalName] : true);
+  }
+
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const check = () => {
+      if (typeof window[globalName] !== 'undefined') {
+        resolve(window[globalName]);
+        return;
+      }
+      if (Date.now() - started >= timeoutMs) {
+        reject(new Error(`${globalName} did not initialize in time.`));
+        return;
+      }
+      window.setTimeout(check, 25);
+    };
+    check();
+  });
+}
 
 /**
  * Load a third-party browser script only when a feature needs it.
- * Concurrent callers share the same Promise and failed loads are retryable.
+ * Existing eager script tags are respected, concurrent callers share one
+ * promise, and failures are retryable through alternate CDNs.
  */
 export function loadExternalScript(src, globalName) {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('External scripts require a browser environment.'));
   }
-  if (!src) return Promise.reject(new Error('External script URL is required.'));
+
+  const sources = Array.isArray(src) ? src.filter(Boolean) : [src].filter(Boolean);
+  if (!sources.length) return Promise.reject(new Error('External script URL is required.'));
+
   if (globalName && typeof window[globalName] !== 'undefined') {
     return Promise.resolve(window[globalName]);
   }
 
-  const existing = _externalScriptPromises.get(src);
-  if (existing) return existing;
+  const key = sources.join('|') + `::${globalName || ''}`;
+  const existingPromise = _externalScriptPromises.get(key);
+  if (existingPromise) return existingPromise;
 
-  const promise = new Promise((resolve, reject) => {
-    const current = Array.from(document.scripts).find(script => script.dataset.externalScriptSrc === src);
-    if (current) {
-      current.addEventListener('load', () => {
-        if (globalName && typeof window[globalName] === 'undefined') {
-          reject(new Error(`${globalName} did not initialize after loading the script.`));
-          return;
-        }
-        resolve(globalName ? window[globalName] : true);
-      }, { once: true });
-      current.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
-      return;
+  const promise = (async () => {
+    let lastError = null;
+
+    // The original app loads QRCode.js with a normal deferred script tag.
+    // Give that script a chance to finish before creating a duplicate tag.
+    if (globalName) {
+      try {
+        return await waitForGlobal(globalName, 1200);
+      } catch (_) {
+        // Continue to the fallback loader.
+      }
     }
 
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.crossOrigin = 'anonymous';
-    script.dataset.externalScriptSrc = src;
-    script.onload = () => {
-      if (globalName && typeof window[globalName] === 'undefined') {
-        reject(new Error(`${globalName} did not initialize after loading the script.`));
-        return;
+    for (const url of sources) {
+      if (globalName && typeof window[globalName] !== 'undefined') {
+        return window[globalName];
       }
-      resolve(globalName ? window[globalName] : true);
-    };
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(script);
-  });
 
-  _externalScriptPromises.set(src, promise);
-  promise.catch(() => _externalScriptPromises.delete(src));
+      try {
+        let script = Array.from(document.scripts).find(
+          candidate => candidate.dataset.externalScriptSrc === url
+        );
+
+        if (!script) {
+          script = document.createElement('script');
+          script.src = url;
+          script.async = true;
+          script.dataset.externalScriptSrc = url;
+          document.head.appendChild(script);
+        }
+
+        await new Promise((resolve, reject) => {
+          if (script.dataset.externalScriptLoaded === 'true') {
+            resolve();
+            return;
+          }
+          const onLoad = () => {
+            script.dataset.externalScriptLoaded = 'true';
+            resolve();
+          };
+          const onError = () => reject(new Error(`Failed to load ${url}`));
+          script.addEventListener('load', onLoad, { once: true });
+          script.addEventListener('error', onError, { once: true });
+
+          // If the element completed before listeners were attached, check
+          // the global directly rather than waiting forever on a past event.
+          if (globalName && typeof window[globalName] !== 'undefined') {
+            script.dataset.externalScriptLoaded = 'true';
+            resolve();
+          }
+        });
+
+        const value = globalName
+          ? await waitForGlobal(globalName, 3000)
+          : true;
+        return value;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error(`Failed to load ${globalName || 'external library'}.`);
+  })();
+
+  _externalScriptPromises.set(key, promise);
+  promise.catch(() => _externalScriptPromises.delete(key));
   return promise;
 }
 
-export const ensureQRCodeLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.qrcode, 'QRCode');
-export const ensureHtml2CanvasLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.html2canvas, 'html2canvas');
-export const ensureJSZipLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.jszip, 'JSZip');
+export const ensureQRCodeLoaded = () =>
+  loadExternalScript(EXTERNAL_SCRIPTS.qrcode, 'QRCode');
+
+export const ensureHtml2CanvasLoaded = () =>
+  loadExternalScript(EXTERNAL_SCRIPTS.html2canvas, 'html2canvas');
+
+export const ensureJSZipLoaded = () =>
+  loadExternalScript(EXTERNAL_SCRIPTS.jszip, 'JSZip');
 
 export function escapeHTML(str) {
   if (str === null || str === undefined) return '';

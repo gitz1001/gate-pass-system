@@ -10,6 +10,9 @@
   <link rel="apple-touch-icon" href="logo.png">
   <title>e-gatepass</title>
   <link rel="stylesheet" href="css/styles.css">
+  <!-- QRCode.js is loaded before the app starts so pass/card QR rendering
+       does not depend on a late runtime CDN request. -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
