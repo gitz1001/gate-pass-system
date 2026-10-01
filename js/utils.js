@@ -1,24 +1,87 @@
+const _externalScriptPromises = new Map();
+
+export const EXTERNAL_SCRIPTS = Object.freeze({
+  qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  jszip: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+});
+
+/**
+ * Load a third-party browser script only when a feature needs it.
+ * Concurrent callers share the same Promise and failed loads are retryable.
+ */
+export function loadExternalScript(src, globalName) {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('External scripts require a browser environment.'));
+  }
+  if (!src) return Promise.reject(new Error('External script URL is required.'));
+  if (globalName && typeof window[globalName] !== 'undefined') {
+    return Promise.resolve(window[globalName]);
+  }
+
+  const existing = _externalScriptPromises.get(src);
+  if (existing) return existing;
+
+  const promise = new Promise((resolve, reject) => {
+    const current = Array.from(document.scripts).find(script => script.dataset.externalScriptSrc === src);
+    if (current) {
+      current.addEventListener('load', () => {
+        if (globalName && typeof window[globalName] === 'undefined') {
+          reject(new Error(`${globalName} did not initialize after loading the script.`));
+          return;
+        }
+        resolve(globalName ? window[globalName] : true);
+      }, { once: true });
+      current.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.dataset.externalScriptSrc = src;
+    script.onload = () => {
+      if (globalName && typeof window[globalName] === 'undefined') {
+        reject(new Error(`${globalName} did not initialize after loading the script.`));
+        return;
+      }
+      resolve(globalName ? window[globalName] : true);
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+
+  _externalScriptPromises.set(src, promise);
+  promise.catch(() => _externalScriptPromises.delete(src));
+  return promise;
+}
+
+export const ensureQRCodeLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.qrcode, 'QRCode');
+export const ensureHtml2CanvasLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.html2canvas, 'html2canvas');
+export const ensureJSZipLoaded = () => loadExternalScript(EXTERNAL_SCRIPTS.jszip, 'JSZip');
+
 export function escapeHTML(str) {
-  if (str === null || str === undefined) return "";
+  if (str === null || str === undefined) return '';
   return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export async function hashPassword(message) {
   const msgUint8 = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
  * Creates a debounced function that delays invoking func until after wait milliseconds.
- * @param {Function} func
- * @param {number} wait
+ * @param {Function} func 
+ * @param {number} wait 
  * @returns {Function}
  */
 export function debounce(func, wait = 300) {
@@ -33,12 +96,7 @@ export function debounce(func, wait = 300) {
   };
 }
 
-export function compressImageToBlob(
-  file,
-  maxWidth = 500,
-  maxHeight = 500,
-  quality = 0.8,
-) {
+export function compressImageToBlob(file, maxWidth = 500, maxHeight = 500, quality = 0.80) {
   return new Promise((resolve, reject) => {
     // URL.createObjectURL only accepts Blob/File/MediaSource. Some browsers
     // can hand us a string/object when a file input is wrapped by another
@@ -46,22 +104,13 @@ export function compressImageToBlob(
     // File objects can come from a different browser realm (iframe / Apps Script
     // sandbox), in which case `file instanceof Blob` can be false even though it
     // is a perfectly valid File. Normalize any Blob-like File before using it.
-    if (
-      !file ||
-      typeof file.size !== "number" ||
-      typeof file.arrayBuffer !== "function"
-    ) {
-      reject(
-        new Error(
-          "Selected photo is not a valid image file. Please choose the photo again.",
-        ),
-      );
+    if (!file || typeof file.size !== 'number' || typeof file.arrayBuffer !== 'function') {
+      reject(new Error('Selected photo is not a valid image file. Please choose the photo again.'));
       return;
     }
-    const sourceBlob =
-      file instanceof Blob
-        ? file
-        : new Blob([file], { type: file.type || "application/octet-stream" });
+    const sourceBlob = (file instanceof Blob)
+      ? file
+      : new Blob([file], { type: file.type || 'application/octet-stream' });
     const objectUrl = URL.createObjectURL(sourceBlob);
     const img = new Image();
 
@@ -73,24 +122,20 @@ export function compressImageToBlob(
         width = Math.max(1, Math.round(width * scale));
         height = Math.max(1, Math.round(height * scale));
 
-        const canvas = document.createElement("canvas");
+        const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        canvas.toBlob(
-          (blob) => {
-            URL.revokeObjectURL(objectUrl);
-            if (!blob) {
-              reject(new Error("Could not encode image."));
-              return;
-            }
-            resolve(blob);
-          },
-          "image/webp",
-          quality,
-        );
+        canvas.toBlob(blob => {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) {
+            reject(new Error('Could not encode image.'));
+            return;
+          }
+          resolve(blob);
+        }, 'image/webp', quality);
       } catch (err) {
         URL.revokeObjectURL(objectUrl);
         reject(err);
@@ -99,7 +144,7 @@ export function compressImageToBlob(
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("Could not read image."));
+      reject(new Error('Could not read image.'));
     };
     img.src = objectUrl;
   });
@@ -113,21 +158,21 @@ export function compressImageToBlob(
  * Resolve a photo value from the database into a valid image src.
  * Handles URL values written to the Photo column plus legacy local image paths.
  * Empty/null returns ''.
- *
+ * 
  * @param {string} photoValue — the raw value from the student record
  * @returns {string} A valid src attribute for an <img> tag, or '' if empty
  */
 export function resolvePhotoUrl(photoValue) {
-  if (!photoValue) return "";
+  if (!photoValue) return '';
 
   // Google Sheets / APIs can occasionally return the photo as an object
   // instead of a plain string. Accept the common URL-shaped fields.
-  if (typeof photoValue === "object") {
-    photoValue = photoValue.url || photoValue.href || photoValue.value || "";
+  if (typeof photoValue === 'object') {
+    photoValue = photoValue.url || photoValue.href || photoValue.value || '';
   }
 
-  const trimmed = String(photoValue || "").trim();
-  if (!trimmed) return "";
+  const trimmed = String(photoValue || '').trim();
+  if (!trimmed) return '';
 
   // An inline data URI. Photos captured before the storage migration were
   // canvas-encoded to WebP and written straight into the Photo column, so the
@@ -145,28 +190,23 @@ export function resolvePhotoUrl(photoValue) {
   }
 
   // A full URL (Drive, Vercel Blob, Cloudinary, etc.).
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     // Drive share links are the one shape that cannot go into an <img> as
     // written. Google stopped serving raw bytes from /uc?export=view — it
     // answers an HTML interstitial and wants the viewer's cookies — so a photo
     // saved by the Apps Script Drive path opens fine in a browser tab and is a
     // broken image on the dashboard. Rewrite any Drive link to the lh3 host,
     // which returns the image itself and sets permissive CORS.
-    const driveId =
-      trimmed.match(
-        /^https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|uc\?(?:[^#]*&)?id=|open\?(?:[^#]*&)?id=)([\w-]{10,})/i,
-      ) ||
-      trimmed.match(
-        /^https?:\/\/drive\.usercontent\.google\.com\/(?:download|uc)\?(?:[^#]*&)?id=([\w-]{10,})/i,
-      );
-    if (driveId) return "https://lh3.googleusercontent.com/d/" + driveId[1];
+    const driveId = trimmed.match(/^https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|uc\?(?:[^#]*&)?id=|open\?(?:[^#]*&)?id=)([\w-]{10,})/i)
+      || trimmed.match(/^https?:\/\/drive\.usercontent\.google\.com\/(?:download|uc)\?(?:[^#]*&)?id=([\w-]{10,})/i);
+    if (driveId) return 'https://lh3.googleusercontent.com/d/' + driveId[1];
 
     return trimmed;
   }
 
   // A legacy local server path (e.g., "photos/PGP-001.webp")
   // Resolve relative to the app root
-  if (trimmed.startsWith("photos/") || trimmed.startsWith("./photos/")) {
+  if (trimmed.startsWith('photos/') || trimmed.startsWith('./photos/')) {
     return trimmed;
   }
 
@@ -183,12 +223,12 @@ export function resolvePhotoUrl(photoValue) {
   // to resolve "Access denied:" as a URL scheme and logged
   // ERR_UNKNOWN_URL_SCHEME for every affected student, on every render and in
   // every emailed pass card. Treat it as no photo and fall back to initials.
-  return "";
+  return '';
 }
 
 /**
  * Check if a photo value represents a valid, displayable image.
- * @param {string} photoValue
+ * @param {string} photoValue 
  * @returns {boolean}
  */
 export function hasPhoto(photoValue) {
@@ -203,45 +243,33 @@ export function hasPhoto(photoValue) {
  * @param {Blob} imageBlob — image bytes to upload
  * @returns {Promise<string>} The saved Blob URL
  */
-export async function uploadPhotoLocally(studentId, imageBlob, kind = "pgp") {
-  if (
-    !studentId ||
-    !imageBlob ||
-    typeof imageBlob.size !== "number" ||
-    typeof imageBlob.arrayBuffer !== "function"
-  ) {
-    throw new Error("A student ID and image file are required.");
+export async function uploadPhotoLocally(studentId, imageBlob, kind = 'pgp') {
+  if (!studentId || !imageBlob || typeof imageBlob.size !== 'number' || typeof imageBlob.arrayBuffer !== 'function') {
+    throw new Error('A student ID and image file are required.');
   }
-  const webp =
-    imageBlob.type === "image/webp"
-      ? imageBlob
-      : await compressImageToBlob(imageBlob, 800, 800, 0.8);
+  const webp = imageBlob.type === 'image/webp'
+    ? imageBlob
+    : await compressImageToBlob(imageBlob, 800, 800, 0.80);
   const base64 = await blobToBase64(webp);
-  const endpoint = (await import("./config.js")).SHEETS_API_URL;
-  const res = await fetch(endpoint + "?action=uploadPhoto", {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
+  const endpoint = (await import('./config.js')).SHEETS_API_URL;
+  const res = await fetch(endpoint + '?action=uploadPhoto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({
       studentId: String(studentId),
-      kind: kind === "tgp" ? "tgp" : "pgp",
+      kind: kind === 'tgp' ? 'tgp' : 'pgp',
       base64: base64,
-      mimeType: "image/webp",
-      fileName: String(studentId) + ".webp",
-    }),
+      mimeType: 'image/webp',
+      fileName: String(studentId) + '.webp'
+    })
   });
   let json = {};
-  try {
-    json = await res.json();
-  } catch (_) {}
+  try { json = await res.json(); } catch (_) {}
   // Apps Script returns the standard API envelope: { success: true, data: { url: ... } }.
   // Accept the legacy top-level url too so both deployed backend versions remain compatible.
-  const savedUrl = (json && json.data && json.data.url) || json.url || "";
+  const savedUrl = (json && json.data && json.data.url) || json.url || '';
   if (!res.ok || !json.success || !savedUrl) {
-    throw new Error(
-      json.error ||
-        (json.data && json.data.error) ||
-        `Photo upload failed (HTTP ${res.status}).`,
-    );
+    throw new Error(json.error || (json.data && json.data.error) || `Photo upload failed (HTTP ${res.status}).`);
   }
   console.log(`[PhotoUpload] Saved WebP to Google Drive: ${savedUrl}`);
   return savedUrl;
@@ -250,9 +278,8 @@ export async function uploadPhotoLocally(studentId, imageBlob, kind = "pgp") {
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () =>
-      reject(new Error("Could not prepare the photo for upload."));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not prepare the photo for upload.'));
     reader.readAsDataURL(blob);
   });
 }
@@ -309,16 +336,16 @@ function clampBox(size, lineHeight, maxLines) {
  */
 export function renderVirtualIdCard(student, options = {}) {
   const {
-    captureId = "idcard-capture",
-    qrId = "idcard-qrcode",
+    captureId = 'idcard-capture',
+    qrId = 'idcard-qrcode',
     centered = false,
-    shadow = false,
+    shadow = false
   } = options;
 
   const s = student || {};
-  const name = s.name || "Unknown";
-  const gradeLine = [s.grade, s.section].filter(Boolean).join(" - ");
-  const arrangementText = s.arrangements || "No arrangement specified";
+  const name = s.name || 'Unknown';
+  const gradeLine = [s.grade, s.section].filter(Boolean).join(' - ');
+  const arrangementText = s.arrangements || 'No arrangement specified';
   const nameFit = fitName(name);
   const arrFit = fitArrangement(arrangementText);
   // A long arrangement eats vertical room; shrink the QR panel to pay for it
@@ -333,31 +360,22 @@ export function renderVirtualIdCard(student, options = {}) {
 
   const photoInner = hasPhoto(s.photo)
     ? `<img src="${escapeHTML(resolvePhotoUrl(s.photo))}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9px;">`
-    : `<div style="width:100%;height:100%;border-radius:9px;background:#f0ebf7;color:#422467;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;letter-spacing:1px;">${escapeHTML(
-        name
-          .replace(/[^A-Za-z]/g, "")
-          .substring(0, 2)
-          .toUpperCase() || "--",
-      )}</div>`;
+    : `<div style="width:100%;height:100%;border-radius:9px;background:#f0ebf7;color:#422467;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;letter-spacing:1px;">${escapeHTML(name.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase() || '--')}</div>`;
 
   const cardStyle = [
-    "width:315px",
-    "height:500px",
-    centered ? "margin:0 auto" : "",
-    "background:#ffffff",
-    "border-radius:16px",
-    "overflow:hidden",
-    shadow
-      ? "box-shadow:0 24px 48px rgba(0,0,0,0.15),0 8px 16px rgba(0,0,0,0.1)"
-      : "",
-    "position:relative",
-    "display:flex",
-    "flex-direction:column",
-    "box-sizing:border-box",
-    `font-family:${CARD_FONT}`,
-  ]
-    .filter(Boolean)
-    .join(";");
+    'width:315px',
+    'height:500px',
+    centered ? 'margin:0 auto' : '',
+    'background:#ffffff',
+    'border-radius:16px',
+    'overflow:hidden',
+    shadow ? 'box-shadow:0 24px 48px rgba(0,0,0,0.15),0 8px 16px rgba(0,0,0,0.1)' : '',
+    'position:relative',
+    'display:flex',
+    'flex-direction:column',
+    'box-sizing:border-box',
+    `font-family:${CARD_FONT}`
+  ].filter(Boolean).join(';');
 
   return `
     <div id="${escapeHTML(captureId)}" data-name="${escapeHTML(name)}" style="${cardStyle};">
@@ -381,8 +399,8 @@ export function renderVirtualIdCard(student, options = {}) {
           <div style="width:76px;height:76px;border-radius:14px;border:3px solid #00c9b1;padding:2px;background:#fff;box-shadow:0 6px 12px rgba(0,201,177,0.2);flex-shrink:0;box-sizing:border-box;">${photoInner}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:${nameFit.size}px;font-weight:800;color:#1a1a2e;line-height:1.2;letter-spacing:-0.2px;margin-bottom:5px;${clampBox(nameFit.size, 1.2, nameFit.maxLines)}">${escapeHTML(name)}</div>
-            <div style="font-size:10px;color:#6b7280;font-weight:600;line-height:1.2;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ID: <span style="color:#422467;font-weight:800;font-size:12px;letter-spacing:0.2px;font-variant-numeric:tabular-nums;">${escapeHTML(s.studid || s.id || "—")}</span></div>
-            ${gradeLine ? `<div style="display:inline-block;max-width:100%;background:#42246714;color:#422467;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:800;line-height:1.35;letter-spacing:0.2px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(gradeLine)}</div>` : ""}
+            <div style="font-size:10px;color:#6b7280;font-weight:600;line-height:1.2;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ID: <span style="color:#422467;font-weight:800;font-size:12px;letter-spacing:0.2px;font-variant-numeric:tabular-nums;">${escapeHTML(s.studid || s.id || '—')}</span></div>
+            ${gradeLine ? `<div style="display:inline-block;max-width:100%;background:#42246714;color:#422467;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:800;line-height:1.35;letter-spacing:0.2px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(gradeLine)}</div>` : ''}
           </div>
         </div>
 
@@ -392,17 +410,17 @@ export function renderVirtualIdCard(student, options = {}) {
 
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:10px;box-sizing:border-box;">
           <div style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:0.5px;line-height:1.2;flex-shrink:0;">Authorized Gate</div>
-          <div style="font-size:11.5px;font-weight:800;color:#422467;text-align:right;line-height:1.25;min-width:0;word-break:break-word;">${escapeHTML(s.preferredGate || "Any authorized gate")}</div>
+          <div style="font-size:11.5px;font-weight:800;color:#422467;text-align:right;line-height:1.25;min-width:0;word-break:break-word;">${escapeHTML(s.preferredGate || 'Any authorized gate')}</div>
         </div>
 
         <div style="background:#f8fafc;border-radius:12px;padding:${qrPad}px;display:flex;flex-direction:column;align-items:center;border:1px dashed #cbd5e1;margin-top:auto;margin-bottom:${compact ? 8 : 10}px;flex-shrink:0;box-sizing:border-box;">
           <div style="font-size:9px;color:#64748b;text-transform:uppercase;font-weight:800;line-height:1.2;margin-bottom:${compact ? 6 : 7}px;letter-spacing:1px;">Scan to Verify</div>
           <div id="${escapeHTML(qrId)}" data-qr-size="${qrBox - 4}" style="width:${qrBox}px;height:${qrBox}px;background:#fff;padding:2px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.05);box-sizing:border-box;display:flex;align-items:center;justify-content:center;"></div>
-          <div style="max-width:100%;font-size:${compact ? 12 : 13}px;font-weight:900;font-family:'Courier New',Courier,monospace;color:#422467;line-height:1.25;margin-top:${compact ? 6 : 7}px;letter-spacing:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(passCardQRPayload(s).split("|")[0] || "—")}</div>
+          <div style="max-width:100%;font-size:${compact ? 12 : 13}px;font-weight:900;font-family:'Courier New',Courier,monospace;color:#422467;line-height:1.25;margin-top:${compact ? 6 : 7}px;letter-spacing:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(passCardQRPayload(s).split('|')[0] || '—')}</div>
         </div>
       </div>
 
-      <div style="background:#481F59;padding:9px 10px;text-align:center;color:#FFFFFF;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
+      <div style="background:#481F59;padding:9px 10px;text-align:center;color:#F5F5F5;font-size:9px;font-weight:800;letter-spacing:0.6px;line-height:1.2;flex-shrink:0;">A.Y. 2026-2027 &bull; VALID UNTIL JULY 2027</div>
     </div>`;
 }
 
@@ -419,8 +437,8 @@ export function passCardQRPayload(student) {
   // the scanner split that into an empty id and answered "Student not found"
   // for every scan of that card, forever. Fall back the way the bare-id branch
   // always has, and only then append the token.
-  const id = s.pgp || s.studid || s.id || "";
-  if (!id) return "N/A";
+  const id = s.pgp || s.studid || s.id || '';
+  if (!id) return 'N/A';
   return s.qrToken ? `${id}|${s.qrToken}` : id;
 }
 
@@ -457,41 +475,40 @@ const QR_RENDER_PX = 960;
  */
 export function renderQRCodeInto(container, text, size) {
   if (!container) return false;
-  container.innerHTML = ""; // re-rendering must not stack QR codes
+  container.innerHTML = '';   // re-rendering must not stack QR codes
 
-  if (typeof window === "undefined" || typeof window.QRCode !== "function")
-    return false;
+  if (typeof window === 'undefined' || typeof window.QRCode !== 'function') return false;
 
   // Build in a detached node: on the fallback path we move the library's own
   // canvas across, so a half-drawn code is never shown.
-  const scratch = document.createElement("div");
+  const scratch = document.createElement('div');
   const qr = new window.QRCode(scratch, {
     text,
     width: size,
     height: size,
-    colorDark: "#000000", // pure black on pure white: widest
-    colorLight: "#ffffff", // binarisation margin a scanner can get
-    correctLevel: window.QRCode.CorrectLevel.H,
+    colorDark: '#000000',     // pure black on pure white: widest
+    colorLight: '#ffffff',    // binarisation margin a scanner can get
+    correctLevel: window.QRCode.CorrectLevel.H
   });
 
   const model = qr && qr._oQRCode;
-  if (model && typeof model.getModuleCount === "function") {
+  if (model && typeof model.getModuleCount === 'function') {
     const count = model.getModuleCount();
     const span = count + QR_QUIET_ZONE * 2;
     const modulePx = Math.max(1, Math.floor(QR_RENDER_PX / span));
     const canvasPx = modulePx * span;
 
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = canvasPx;
     canvas.height = canvasPx;
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;
-    canvas.style.display = "block";
+    canvas.style.display = 'block';
 
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasPx, canvasPx);
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = '#000000';
     for (let row = 0; row < count; row++) {
       for (let col = 0; col < count; col++) {
         if (!model.isDark(row, col)) continue;
@@ -499,7 +516,7 @@ export function renderQRCodeInto(container, text, size) {
           (col + QR_QUIET_ZONE) * modulePx,
           (row + QR_QUIET_ZONE) * modulePx,
           modulePx,
-          modulePx,
+          modulePx
         );
       }
     }
@@ -531,21 +548,21 @@ export function renderVirtualIdCardQR(containerId, student) {
 
   const qrPayload = passCardQRPayload(student);
 
-  if (typeof window !== "undefined" && typeof window.QRCode === "function") {
+  if (typeof window !== 'undefined' && typeof window.QRCode === 'function') {
     try {
       // The card tells us how big it can afford; default to the roomy size.
       const size = parseInt(container.dataset.qrSize, 10) || 112;
       if (renderQRCodeInto(container, qrPayload, size)) return true;
     } catch (err) {
-      console.error("[IdCard] Failed to render QR code:", err);
+      console.error('[IdCard] Failed to render QR code:', err);
     }
   }
 
   // No QR library: show the payload so the card is still usable.
   container.textContent = qrPayload;
-  container.style.fontSize = "9px";
-  container.style.wordBreak = "break-all";
-  container.style.textAlign = "center";
+  container.style.fontSize = '9px';
+  container.style.wordBreak = 'break-all';
+  container.style.textAlign = 'center';
   return false;
 }
 
@@ -557,32 +574,16 @@ export const renderPassCardQR = renderVirtualIdCardQR;
 
 export function waitForImages(root, timeout = 5000) {
   if (!root) return Promise.resolve();
-  const images = Array.from(root.querySelectorAll("img"));
+  const images = Array.from(root.querySelectorAll('img'));
   if (!images.length) return Promise.resolve();
-  return Promise.all(
-    images.map((img) => {
-      if (img.complete) return Promise.resolve();
-      return new Promise((resolve) => {
-        const timer = setTimeout(resolve, timeout);
-        img.addEventListener(
-          "load",
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
-        img.addEventListener(
-          "error",
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
-      });
-    }),
-  );
+  return Promise.all(images.map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, timeout);
+      img.addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+      img.addEventListener('error', () => { clearTimeout(timer); resolve(); }, { once: true });
+    });
+  }));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -594,7 +595,7 @@ export function waitForImages(root, timeout = 5000) {
  * Current school year prefix (first 2 digits of the starting year).
  * For SY 2026-2027, this is '26'.
  */
-export const CURRENT_SCHOOL_YEAR = "26";
+export const CURRENT_SCHOOL_YEAR = '26';
 
 /**
  * Extract a 2-character grade code from a grade string.
@@ -603,30 +604,25 @@ export const CURRENT_SCHOOL_YEAR = "26";
  * Unknown → "XX"
  */
 export function gradeToCode(gradeStr) {
-  if (!gradeStr) return "XX";
+  if (!gradeStr) return 'XX';
   const trimmed = gradeStr.trim();
   const lower = trimmed.toLowerCase();
 
   // Special IB grades first
-  if (lower.includes("ib1")) return "B1";
-  if (lower.includes("ib2")) return "B2";
+  if (lower.includes('ib1')) return 'B1';
+  if (lower.includes('ib2')) return 'B2';
 
   // Special grade levels
-  if (
-    lower.includes("pre-school") ||
-    lower.includes("preschool") ||
-    lower.includes("kinder")
-  )
-    return "PS";
-  if (lower.includes("college")) return "CO";
+  if (lower.includes('pre-school') || lower.includes('preschool') || lower.includes('kinder')) return 'PS';
+  if (lower.includes('college')) return 'CO';
 
   // Match "Grade N" or "N" patterns
   const match = trimmed.match(/(\d+)/);
   if (match) {
-    return match[1].padStart(2, "0"); // "7" → "07", "10" → "10"
+    return match[1].padStart(2, '0'); // "7" → "07", "10" → "10"
   }
 
-  return "XX";
+  return 'XX';
 }
 
 /**
@@ -635,18 +631,18 @@ export function gradeToCode(gradeStr) {
  * "Diligence" → "D", "Integrity" → "I", "" → "X"
  */
 export function sectionToCode(sectionStr) {
-  if (!sectionStr || typeof sectionStr !== "string") return "XXX";
+  if (!sectionStr || typeof sectionStr !== 'string') return 'XXX';
   const trimmed = sectionStr.trim();
-  if (!trimmed) return "XXX";
-
+  if (!trimmed) return 'XXX';
+  
   // Extract up to 3 alphabetical characters for a robust abbreviation
-  const letters = trimmed.replace(/[^A-Za-z]/g, "").toUpperCase();
-  return (letters + "XXX").substring(0, 3);
+  const letters = trimmed.replace(/[^A-Za-z]/g, '').toUpperCase();
+  return (letters + 'XXX').substring(0, 3);
 }
 
 /**
  * Generate a unique PGP ID in the format: {YY}{S}{GG}-{NNN}
- *
+ * 
  * @param {string} grade - The grade level string (e.g., "Grade 7", "Grade 10")
  * @param {string} section - The section name (e.g., "Diligence", "A")
  * @param {Array} existingStudents - Array of existing student objects to check for duplicates
@@ -661,23 +657,22 @@ export function generatePGP(grade, section, existingStudents, schoolYear) {
 
   // Find the highest existing number for this prefix
   const existingNumbers = (existingStudents || [])
-    .filter((s) => s.pgp && s.pgp.startsWith(prefix + "-"))
-    .map((s) => {
-      const parts = s.pgp.split("-");
+    .filter(s => s.pgp && s.pgp.startsWith(prefix + '-'))
+    .map(s => {
+      const parts = s.pgp.split('-');
       return parseInt(parts[1], 10);
     })
-    .filter((n) => !isNaN(n));
+    .filter(n => !isNaN(n));
 
-  const nextNumber =
-    existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1; // Start from 001
+  const nextNumber = existingNumbers.length > 0
+    ? Math.max(...existingNumbers) + 1
+    : 1; // Start from 001
 
   if (nextNumber > 999) {
-    throw new Error(
-      `PGP capacity exceeded for prefix "${prefix}". Max 999 students per section per grade per year.`,
-    );
+    throw new Error(`PGP capacity exceeded for prefix "${prefix}". Max 999 students per section per grade per year.`);
   }
 
-  return `${prefix}-${String(nextNumber).padStart(3, "0")}`;
+  return `${prefix}-${String(nextNumber).padStart(3, '0')}`;
   // Result: "26A07-001", "26A07-002", etc.
 }
 
@@ -695,16 +690,15 @@ export function generatePGP(grade, section, existingStudents, schoolYear) {
  * @returns {string}
  */
 export function generateQRToken(length = 8) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const rng =
-    typeof crypto !== "undefined" && crypto.getRandomValues ? crypto : null;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const rng = (typeof crypto !== 'undefined' && crypto.getRandomValues)
+    ? crypto
+    : null;
 
   if (!rng) {
     // Nothing better available — keep issuing a token rather than throwing.
-    console.warn(
-      "[utils] crypto.getRandomValues unavailable; QR token quality is reduced.",
-    );
-    let fallback = "";
+    console.warn('[utils] crypto.getRandomValues unavailable; QR token quality is reduced.');
+    let fallback = '';
     for (let i = 0; i < length; i++) {
       fallback += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -715,7 +709,7 @@ export function generateQRToken(length = 8) {
   // it keeps every character equally likely instead of favouring the first
   // four of the alphabet.
   const limit = Math.floor(256 / chars.length) * chars.length;
-  let token = "";
+  let token = '';
   while (token.length < length) {
     const bytes = new Uint8Array(length);
     rng.getRandomValues(bytes);
@@ -733,42 +727,38 @@ export function generatePaginationHTML(pagination, totalItems) {
   const maxPage = Math.ceil(totalItems / pagination.limit) || 1;
   const start = (pagination.page - 1) * pagination.limit;
   const end = Math.min(start + pagination.limit, totalItems);
-
-  let infoText =
-    totalItems === 0
-      ? "No records found"
-      : `Showing ${start + 1} to ${end} of ${totalItems}`;
-
-  let pageButtons = "";
+  
+  let infoText = totalItems === 0 ? 'No records found' : `Showing ${start + 1} to ${end} of ${totalItems}`;
+  
+  let pageButtons = '';
   let startPage = Math.max(1, pagination.page - 2);
   let endPage = Math.min(maxPage, startPage + 4);
   if (endPage - startPage < 4) {
     startPage = Math.max(1, endPage - 4);
   }
-
+  
   if (startPage > 1) {
     pageButtons += `<button class="page-num" data-page="1">1</button>`;
     if (startPage > 2) pageButtons += `<span class="page-ellipsis">...</span>`;
   }
-
+  
   for (let i = startPage; i <= endPage; i++) {
-    pageButtons += `<button class="page-num ${i === pagination.page ? "active" : ""}" data-page="${i}">${i}</button>`;
+    pageButtons += `<button class="page-num ${i === pagination.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
   }
-
+  
   if (endPage < maxPage) {
-    if (endPage < maxPage - 1)
-      pageButtons += `<span class="page-ellipsis">...</span>`;
+    if (endPage < maxPage - 1) pageButtons += `<span class="page-ellipsis">...</span>`;
     pageButtons += `<button class="page-num" data-page="${maxPage}">${maxPage}</button>`;
   }
 
   return `
     <div class="pagination-info">${infoText}</div>
     <div class="pagination-controls">
-      <button class="page-nav" id="btn-page-prev" ${pagination.page === 1 ? "disabled" : ""}>
+      <button class="page-nav" id="btn-page-prev" ${pagination.page === 1 ? 'disabled' : ''}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><polyline points="15 18 9 12 15 6"></polyline></svg> Prev
       </button>
       ${pageButtons}
-      <button class="page-nav" id="btn-page-next" ${pagination.page === maxPage ? "disabled" : ""}>
+      <button class="page-nav" id="btn-page-next" ${pagination.page === maxPage ? 'disabled' : ''}>
         Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </button>
     </div>
@@ -777,26 +767,21 @@ export function generatePaginationHTML(pagination, totalItems) {
 
 export function bindPaginationEvents(container, pagination, updateCallback) {
   if (!container) return;
-  const prevBtn = container.querySelector("#btn-page-prev");
-  const nextBtn = container.querySelector("#btn-page-next");
-  const pageNums = container.querySelectorAll(".page-num");
-
-  if (prevBtn)
-    prevBtn.addEventListener("click", () => {
-      if (pagination.page > 1) {
-        pagination.page--;
-        updateCallback();
-      }
-    });
-  if (nextBtn)
-    nextBtn.addEventListener("click", () => {
-      pagination.page++;
-      updateCallback();
-    });
-  pageNums.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+  const prevBtn = container.querySelector('#btn-page-prev');
+  const nextBtn = container.querySelector('#btn-page-next');
+  const pageNums = container.querySelectorAll('.page-num');
+  
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (pagination.page > 1) { pagination.page--; updateCallback(); }
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    pagination.page++; updateCallback();
+  });
+  pageNums.forEach(btn => {
+    btn.addEventListener('click', (e) => {
       pagination.page = parseInt(e.currentTarget.dataset.page, 10);
       updateCallback();
     });
   });
 }
+
