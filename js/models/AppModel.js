@@ -107,40 +107,68 @@ export default class AppModel {
   // ════════════════════════════════════════════════════════════
 
   async syncFromSheet() {
-    this.syncStatus = 'syncing';
-    try {
-      const data = await SheetsService.getAll();
+    // Never allow overlapping full syncs. A second caller should wait for the
+    // same request instead of racing the first request and overwriting fresh
+    // state with an older response.
+    if (this._syncPromise) return this._syncPromise;
 
-      // Change detection: compare hash before updating
-      const newHash = this.computeDataHash(data);
-      const hasChanged = newHash !== this.lastDataHash;
-      this.lastDataHash = newHash;
+    this._syncPromise = (async () => {
+      this.syncStatus = 'syncing';
+      try {
+        // Flush any writes that were queued while offline BEFORE pulling the
+        // cloud snapshot. Otherwise the sync can fetch old data, then write the
+        // queued change afterwards, leaving the UI one sync behind.
+        if (navigator.onLine && this.writeQueue.length > 0) {
+          await this.processWriteQueue();
+        }
 
-      // Map Sheet columns to frontend field names
-      this.students = (data.students || []).map(s => this.mapStudentFromSheet(s));
-      this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      this.tgp = data.temporary_passes || [];
-      this.users = data.users || [];
-      this.gates = (data.gates || []).map(g => this.mapGateFromSheet(g));
-      this.rebuildIndexes();
+        const data = await SheetsService.getAll();
 
-      // Cache to localStorage
-      this.cacheAll();
-      this.lastSyncTime = Date.now();
-      localStorage.setItem('pgp_last_sync', this.lastSyncTime.toString());
-      this.syncStatus = 'idle';
-      this.isOnline = true;
+        // Change detection must account for actual record changes, not only
+        // row counts / first / last IDs. The previous lightweight fingerprint
+        // could report `changed: false` when a name, gate, TGP status, QR token,
+        // face descriptor, or other middle-row field changed. That made sync
+        // look successful while the current page stayed stale.
+        const newHash = this.computeDataHash(data);
+        const hasChanged = newHash !== this.lastDataHash;
+        this.lastDataHash = newHash;
 
-      // Process any queued offline writes
-      await this.processWriteQueue();
+        // Map Sheet columns to frontend field names
+        this.students = (data.students || []).map(s => this.mapStudentFromSheet(s));
+        this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        this.tgp = data.temporary_passes || [];
+        this.users = data.users || [];
+        this.gates = (data.gates || []).map(g => this.mapGateFromSheet(g));
+        this.rebuildIndexes();
 
-      return { success: true, changed: hasChanged };
-    } catch (err) {
-      console.error('Sync failed:', err);
-      this.syncStatus = 'error';
-      this.isOnline = false;
-      return { success: false, changed: false };
-    }
+        // Cache to localStorage. A cache failure must never turn a successful
+        // cloud fetch into a reported sync failure.
+        this.cacheAll();
+        this.lastSyncTime = Date.now();
+        try {
+          localStorage.setItem('pgp_last_sync', this.lastSyncTime.toString());
+        } catch (_) {
+          // Cache quota/privacy mode must not invalidate a successful sync.
+        }
+        this.syncStatus = 'idle';
+        this.isOnline = navigator.onLine;
+
+        return { success: true, changed: hasChanged };
+      } catch (err) {
+        console.error('Sync failed:', err);
+        this.syncStatus = 'error';
+        // A server/API failure does not mean the browser is offline. Keeping
+        // these states distinct prevents the reconnect handler from becoming
+        // the only path back to a healthy sync loop.
+        this.isOnline = navigator.onLine;
+        this.lastSyncError = err && err.message ? err.message : String(err);
+        return { success: false, changed: false, error: this.lastSyncError };
+      } finally {
+        this._syncPromise = null;
+      }
+    })();
+
+    return this._syncPromise;
   }
 
   // ── Field Mapping: Sheet → Frontend ───────────────────────
@@ -311,25 +339,42 @@ export default class AppModel {
 
   // ── Change Detection ─────────────────────────────────────
   computeDataHash(data) {
-    const str = JSON.stringify({
-      studentCount: (data.students || []).length,
-      logCount: (data.scan_logs || []).length,
-      tgpCount: (data.temporary_passes || []).length,
-      userCount: (data.users || []).length,
-      firstStudent: (data.students || [])[0]?.PassID || '',
-      lastStudent: (data.students || []).slice(-1)[0]?.PassID || '',
-      firstLog: (data.scan_logs || [])[0]?.id || '',
-      lastLog: (data.scan_logs || []).slice(-1)[0]?.id || '',
-      // Include a snapshot of statuses for edit detection
-      statusSnapshot: (data.students || []).map(s => s.Status || '').join(',')
+    // Build a deterministic, content-based fingerprint over every returned
+    // record. Huge inline image payloads are represented by length + edge
+    // samples so photo blobs cannot dominate sync CPU/memory, while normal
+    // URL-based photos are captured in full.
+    const compactRows = rows => (Array.isArray(rows) ? rows : []).map(row => {
+      const out = {};
+      Object.keys(row || {}).sort().forEach(key => {
+        const value = row[key];
+        if (typeof value === 'string' && value.length > 8192) {
+          out[key] = {
+            __largeString: true,
+            length: value.length,
+            head: value.slice(0, 256),
+            tail: value.slice(-256)
+          };
+        } else {
+          out[key] = value;
+        }
+      });
+      return out;
     });
-    let hash = 0;
+
+    const str = JSON.stringify({
+      students: compactRows(data && data.students),
+      scan_logs: compactRows(data && data.scan_logs),
+      temporary_passes: compactRows(data && data.temporary_passes),
+      users: compactRows(data && data.users),
+      gates: compactRows(data && data.gates)
+    });
+
+    let hash = 2166136261;
     for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash |= 0;
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
     }
-    return hash;
+    return hash >>> 0;
   }
 
   // ════════════════════════════════════════════════════════════
@@ -639,7 +684,15 @@ export default class AppModel {
   }
 
   isSessionExpired() {
-    if (!this.currentUser || !this.currentUser.lastActivity) return true;
+    if (!this.currentUser) return true;
+
+    // Administrators use a persistent in-browser session and are not subject
+    // to the inactivity timeout. The browserAlive flag still prevents a stale
+    // localStorage session from surviving a closed browser session.
+    const role = String(this.currentUser.role || '').trim().toLowerCase();
+    if (role === 'admin') return false;
+
+    if (!this.currentUser.lastActivity) return true;
     return (Date.now() - this.currentUser.lastActivity) > this.SESSION_TIMEOUT;
   }
 }

@@ -37,7 +37,7 @@ export const STORAGE_KEYS = {
 };
 
 // Inactivity before the session is dropped (ms).
-export const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+export const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 /**
  * Build the URL of the main login page, optionally carrying a notice

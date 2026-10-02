@@ -209,6 +209,7 @@ export default class AppController {
     this.isUserIdle = false;
     this.idleSyncTimer = null;
     this.syncBackoffMs = 0;
+    this.nextSyncAllowedAt = 0;
 
     // ── Unified Activity Tracker (also handles session timeout) ──
     const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown'];
@@ -255,12 +256,14 @@ export default class AppController {
 
     // ── Manual Sync Button ──
     const btnSync = document.getElementById('btn-sync');
-    if (btnSync) btnSync.addEventListener('click', () => this.performSync());
+    if (btnSync) btnSync.addEventListener('click', () => this.performSync(true));
 
     // ── Online/Offline Handlers ──
     window.addEventListener('online', () => {
       this.model.isOnline = true;
-      if (this.model.currentUser) this.performSync();
+      this.syncBackoffMs = 0;
+      this.nextSyncAllowedAt = 0;
+      if (this.model.currentUser) this.performSync(true);
     });
     window.addEventListener('offline', () => {
       this.model.isOnline = false;
@@ -292,8 +295,13 @@ export default class AppController {
     }
   }
 
-  async performSync() {
-    if (this.model.syncStatus === 'syncing' || !navigator.onLine) return;
+  async performSync(force = false) {
+    if (!navigator.onLine) return;
+    if (this.model.syncStatus === 'syncing') return;
+
+    // Respect the retry backoff after transient failures, while allowing
+    // explicit/manual syncs and reconnects to bypass it.
+    if (!force && this.nextSyncAllowedAt && Date.now() < this.nextSyncAllowedAt) return;
 
     // UI update
     this.model.syncStatus = 'syncing';
@@ -331,9 +339,13 @@ export default class AppController {
 
       // Reset backoff on success
       this.syncBackoffMs = 0;
+      this.nextSyncAllowedAt = 0;
     } else if (!result.success) {
-      // Exponential backoff: increase delay on repeated failures
+      // Exponential backoff: increase delay on repeated failures. The previous
+      // code calculated this value but never actually used it, so a broken
+      // endpoint could be hammered every idle interval.
       this.syncBackoffMs = Math.min((this.syncBackoffMs || 15000) * 2, 120000);
+      this.nextSyncAllowedAt = Date.now() + this.syncBackoffMs;
       this.view.showToast('Cloud sync failed. Showing available local data.', 'error');
 
       // If this was the first sync, show the actual page instead of leaving

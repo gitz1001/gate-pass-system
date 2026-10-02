@@ -12,32 +12,55 @@ export default class SheetsService {
   static async get(action, params = {}) {
     const query = new URLSearchParams({ action, ...params, _t: Date.now() }).toString();
     const url = `${API_URL}?${query}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    let res;
-    try {
-      res = await fetch(url, {
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
-      });
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
-        throw new Error('Sheets API request timed out after 30 seconds.');
+    const maxAttempts = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const controller = new AbortController();
+      const timeoutMs = 45000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+
+        if (!res.ok) {
+          const retryable = [408, 425, 429, 500, 502, 503, 504].includes(res.status);
+          const error = new Error(`Sheets API returned HTTP ${res.status}`);
+          lastError = error;
+          if (!retryable || attempt === maxAttempts) throw error;
+        } else {
+          let json;
+          try {
+            json = await res.json();
+          } catch (_) {
+            throw new Error('Sheets API returned a non-JSON response (check the Web App deployment).');
+          }
+          if (!json.success) throw new Error(json.error || 'API error');
+          return json.data;
+        }
+      } catch (err) {
+        lastError = err;
+        const retryableNetwork = !err || err.name === 'AbortError' || err instanceof TypeError;
+        if (!retryableNetwork || attempt === maxAttempts) {
+          if (err && err.name === 'AbortError') {
+            throw new Error(`Sheets API request timed out after ${timeoutMs / 1000} seconds.`);
+          }
+          throw err;
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
+
+      // Short exponential backoff prevents a transient Apps Script/network
+      // failure from becoming a permanent-looking sync failure.
+      await new Promise(resolve => setTimeout(resolve, 600 * Math.pow(2, attempt - 1)));
     }
-    if (!res.ok) throw new Error(`Sheets API returned HTTP ${res.status}`);
-    let json;
-    try {
-      json = await res.json();
-    } catch (_) {
-      throw new Error('Sheets API returned a non-JSON response (check the Web App deployment).');
-    }
-    if (!json.success) throw new Error(json.error || 'API error');
-    return json.data;
+
+    throw lastError || new Error('Sheets API request failed.');
   }
 
   static async post(action, body = {}) {
