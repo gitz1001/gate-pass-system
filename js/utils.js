@@ -191,13 +191,6 @@ export function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 
-export async function hashPassword(message) {
-  const msgUint8 = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 /**
  * Creates a debounced function that delays invoking func until after wait milliseconds.
  * @param {Function} func 
@@ -371,8 +364,12 @@ export async function uploadPhotoLocally(studentId, imageBlob, kind = 'pgp') {
     ? imageBlob
     : await compressImageToBlob(imageBlob, 800, 800, 0.80);
   const base64 = await blobToBase64(webp);
-  const endpoint = (await import('./config.js')).SHEETS_API_URL;
-  const res = await fetch(endpoint + '?action=uploadPhoto', {
+  const { SHEETS_API_URL: endpoint, STORAGE_KEYS } = await import('./config.js');
+  // A signed-in upload replaces the student's existing photo file; without a
+  // session the backend saves a new, uniquely named file instead.
+  let auth = '';
+  try { auth = (JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null') || {}).token || ''; } catch (_) { }
+  const res = await fetch(endpoint + '?action=uploadPhoto' + (auth ? '&auth=' + encodeURIComponent(auth) : ''), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({

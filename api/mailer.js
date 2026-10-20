@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
-const { rejected } = require('./_lib/request-guard');
+const { rejected, rejectedUnlessStaff } = require('./_lib/request-guard');
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ *
@@ -1131,6 +1131,7 @@ module.exports = async function handler(req, res) {
   // Same open-relay exposure as /api/send-email: this handler is reachable at
   // /api/mailer and at /api/send-email.php through the rewrite in vercel.json.
   if (rejected(req, res, { name: 'email' })) return;
+  if (rejectedUnlessStaff(req, res)) return;
 
   /*
    * Environment variables.

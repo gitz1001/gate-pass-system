@@ -60,6 +60,18 @@ The Vercel API routes use packages declared in `package.json`. For local setup, 
 
 Use **`Code.gs` only** as the canonical Apps Script backend source. The older `app.gs` copy was removed because it duplicates global entry points such as `doGet`, `doPost`, and `handleRequest`. Apps Script loads all `.gs` files in a project into one shared global scope; file names do not select which backend is active. Keep only one definition of each entry-point function, save the script, and deploy a new Web App version. If you reuse the existing deployment, keep the Web App URL in `js/config.js` unchanged.
 
+### Staff login and access control
+
+The Web App URL is public: it ships in `js/config.js`. Everything that protects the data therefore runs on the server.
+
+- **Login** is the `login` action in `Code.gs`. It checks the password against the `users` tab and returns a session token signed with the `AUTH_SECRET` Script Property. The browser never receives any password or hash.
+- **Every other action** needs that token (`?auth=<token>`) and a role allowed by `ACTION_ROLES` in `Code.gs`. Only `getGates`, `submitApplication`, `uploadPhoto` and `addTGP` stay public for the application forms. A public `addTGP` is always saved as `pending`.
+- **Vercel email and photo-upload functions** require the same token in an `Authorization: Bearer` header and verify it with the `AUTH_SECRET` environment variable, which must equal the Script Property.
+- **Passwords** are stored as salted hashes (`v2$…`). To set or reset one, type the new password into the user's cell and run `hashPlaintextPasswords()`, or let the user log in once (login upgrades it). Changing a password or setting `status` to anything but `active` ends that user's sessions within two minutes.
+- **Checks you can run from the editor:** `reportWeakPasswords()` lists accounts that still use a known default or leaked password, and `reportPlaintextPasswords()` lists unhashed ones. Neither prints a password.
+
+First-time setup: run `setupAuthSecret()` in the Apps Script editor, copy the logged value into Vercel as `AUTH_SECRET` (Production and Preview), then deploy the new Web App version. If a rollout ever locks everyone out, setting the Script Property `AUTH_ENFORCE` to `false` temporarily turns the session check off.
+
 ## 🚀 Getting Started
 
 ### Prerequisites

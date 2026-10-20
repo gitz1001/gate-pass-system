@@ -33,6 +33,8 @@
 const DEFAULT_LIMIT = 400;
 const DEFAULT_WINDOW_MS = 10 * 60 * 1000;
 
+const crypto = require('crypto');
+
 const hits = new Map();
 
 function clean(value) {
@@ -173,4 +175,68 @@ function rejected(req, res, options) {
   return true;
 }
 
-module.exports = { checkRequest, rejected, allowedOrigins, clientIp };
+/**
+ * The staff session behind a request, or null.
+ *
+ * The token comes from the Apps Script login action (see AUTHENTICATION in
+ * Code.gs): base64url(JSON payload) + '.' + base64url(HMAC-SHA256(payload)).
+ * It is read from "Authorization: Bearer <token>", or from ?auth=<token> so
+ * an administrator can open GET endpoints such as ?selftest=1 in a browser.
+ *
+ * Only the signature and expiry are checked here; this function cannot see
+ * the users tab, so a deactivated account keeps email access until its token
+ * expires (12 hours at most).
+ */
+function staffSession(req) {
+  const secret = clean(process.env.AUTH_SECRET);
+  if (!secret) return null;
+
+  const header = clean(req.headers && req.headers.authorization);
+  const token = header.toLowerCase().startsWith('bearer ')
+    ? header.slice(7).trim()
+    : clean(req.query && req.query.auth);
+  const dot = token.indexOf('.');
+  if (dot < 1) return null;
+
+  const payload = token.slice(0, dot);
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const given = token.slice(dot + 1);
+  if (expected.length !== given.length ||
+      !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(given))) {
+    return null;
+  }
+
+  try {
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!claims || !claims.u || !(Number(claims.exp) > Date.now())) return null;
+    return { username: String(claims.u), role: String(claims.r || '') };
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Refuse a request that does not carry a valid staff session.
+ * Returns true when the caller should stop.
+ */
+function rejectedUnlessStaff(req, res) {
+  if (!clean(process.env.AUTH_SECRET)) {
+    console.error('AUTH_SECRET is not set; refusing a staff-only request.');
+    res.status(503).json({
+      success: false,
+      message: 'Email is not configured: AUTH_SECRET is missing in Vercel.',
+      error: 'AUTH_SECRET is not set in Vercel Environment Variables.'
+    });
+    return true;
+  }
+  if (staffSession(req)) return false;
+  res.status(401).json({
+    success: false,
+    authRequired: true,
+    message: 'Your session has expired. Please log in again.',
+    error: 'Your session has expired. Please log in again.'
+  });
+  return true;
+}
+
+module.exports = { checkRequest, rejected, allowedOrigins, clientIp, staffSession, rejectedUnlessStaff };

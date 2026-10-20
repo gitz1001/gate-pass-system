@@ -1,5 +1,5 @@
 import SheetsService from '../services/SheetsService.js';
-import { uploadPhotoLocally, hashPassword } from '../utils.js';
+import { uploadPhotoLocally } from '../utils.js';
 import { SESSION_TIMEOUT_MS } from '../config.js';
 
 // ════════════════════════════════════════════════════════════════
@@ -665,48 +665,39 @@ export default class AppModel {
   }
 
   // ════════════════════════════════════════════════════════════
-  // AUTHENTICATION — Now checks against users from Google Sheet
+  // AUTHENTICATION — the backend checks the password and returns a signed
+  // session token; the browser never sees any account's password hash.
   // ════════════════════════════════════════════════════════════
 
   async authenticateUser(username, password) {
-    // Try to fetch fresh users from sheet first
+    let result;
     try {
-      this.users = await SheetsService.getUsers();
-      writeCache('pgp_users', this.users);
+      result = await SheetsService.login(username, password);
     } catch (err) {
-      console.warn('Could not fetch users from Sheet, using cached data');
-      // users already loaded from localStorage cache
+      if (/invalid username or password/i.test(err && err.message)) return null;
+      throw err;
     }
-
-    const hashedPassword = await hashPassword(password);
-    
-    const user = this.users.find(u =>
-      u.username === username && 
-      (u.password === hashedPassword || u.password === password) && // Support transition
-      (!u.status || u.status.toLowerCase() === 'active')
-    );
-
-    if (user) {
-      const userPayload = normalizeUserProfile({
-        username: user.username,
-        name: user.name || user.displayName || user.fullName,
-        role: user.role,
-        gate: user.gate || '',
-        loginTime: new Date().toISOString(),
-        lastActivity: Date.now()
-      });
-      if (!userPayload || !userPayload.username || !userPayload.role) {
-        console.error('[AppModel] Refusing login: user record is missing a username or role.');
-        return null;
-      }
-      this.currentUser = userPayload;
-      if (!persistSession(userPayload)) {
-        this.currentUser = null;
-        throw new Error('Browser storage is unavailable. Enable site storage for this website, then sign in again.');
-      }
-      return userPayload;
+    const user = result && result.user;
+    const userPayload = normalizeUserProfile(user && {
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      gate: user.gate || '',
+      loginTime: new Date().toISOString(),
+      lastActivity: Date.now(),
+      token: result.token,
+      expiresAt: result.expiresAt
+    });
+    if (!userPayload || !userPayload.username || !userPayload.role || !userPayload.token) {
+      console.error('[AppModel] Refusing login: the sign-in response is incomplete.');
+      return null;
     }
-    return null;
+    this.currentUser = userPayload;
+    if (!persistSession(userPayload)) {
+      this.currentUser = null;
+      throw new Error('Browser storage is unavailable. Enable site storage for this website, then sign in again.');
+    }
+    return userPayload;
   }
 
   login(userPayload) {
@@ -747,6 +738,11 @@ export default class AppModel {
 
   isSessionExpired() {
     if (!this.currentUser) return true;
+
+    // No server token (a session from before server-side login) or an expired
+    // one: the backend would refuse every call, so sign in again.
+    if (!this.currentUser.token) return true;
+    if (Number(this.currentUser.expiresAt) && Date.now() > Number(this.currentUser.expiresAt)) return true;
 
     // Administrators use a persistent in-browser session and are not subject
     // to the inactivity timeout. The browserAlive flag still prevents a stale

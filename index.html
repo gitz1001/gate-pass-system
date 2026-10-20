@@ -615,38 +615,6 @@
     document.querySelectorAll('[data-school-year-label]').forEach(el => { el.textContent = SCHOOL_YEAR_LABEL; });
     document.querySelectorAll('[data-copyright-year]').forEach(el => { el.textContent = String(COPYRIGHT_YEAR); });
 
-    async function hashPassword(pw) {
-      if (!window.crypto || !window.crypto.subtle) {
-        throw new Error(
-          'Secure login is unavailable over plain HTTP. Open this site via HTTPS or localhost.'
-        );
-      }
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function readCachedUsers() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.users) || '[]');
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_) {
-        return [];
-      }
-    }
-
-    async function fetchUsers() {
-      try {
-        const users = await SheetsService.getUsers();
-        if (Array.isArray(users)) {
-          try { localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users)); } catch (_) { /* cache is optional */ }
-          return users;
-        }
-      } catch (err) {
-        console.warn('[Login] Could not fetch current users; trying the local cache.', err);
-      }
-      return readCachedUsers();
-    }
-
     const loginModal = document.getElementById('login-modal');
     const loginModalBox = document.getElementById('login-modal-box');
     const loginError = document.getElementById('login-error');
@@ -701,32 +669,34 @@
       loginError.classList.remove('show');
 
       try {
-        const [users, hashedPw] = await Promise.all([fetchUsers(), hashPassword(password)]);
-
-        if (users.length === 0) {
-          showLoginError('No user accounts found. Please contact your administrator.');
-          btn.disabled = false; btn.textContent = 'Secure Login'; return;
+        // The password is checked by the backend, which answers with a signed
+        // session token. Nothing about other accounts ever reaches the browser.
+        let result;
+        try {
+          result = await SheetsService.login(username, password);
+        } catch (loginErr) {
+          const text = loginErr && loginErr.message ? loginErr.message : '';
+          if (/invalid username or password|too many failed attempts|not set up yet/i.test(text)) {
+            showLoginError(text);
+            document.getElementById('l-password').value = '';
+            btn.disabled = false; btn.textContent = 'Secure Login'; return;
+          }
+          throw loginErr;
         }
-
-        const user = users.find(u =>
-          u && String(u.username || '') === username &&
-          (u.password === hashedPw || u.password === password) &&
-          (!u.status || String(u.status).toLowerCase() === 'active') &&
-          String(u.role || '').trim()
-        );
-
-        if (!user) {
-          showLoginError('Invalid username or password.');
-          document.getElementById('l-password').value = '';
-          btn.disabled = false; btn.textContent = 'Secure Login'; return;
+        const user = result && result.user;
+        if (!result || !result.token || !user || !user.role) {
+          throw new Error('Sign-in service returned an incomplete session.');
         }
 
         try {
           localStorage.setItem(STORAGE_KEYS.session, JSON.stringify({
-            username: user.username, name: user.name || user.displayName || user.fullName || user.username,
-            role: user.role, gate: user.gate || '', loginTime: new Date().toISOString(), lastActivity: Date.now()
+            username: user.username, name: user.name || user.username,
+            role: user.role, gate: user.gate || '', loginTime: new Date().toISOString(), lastActivity: Date.now(),
+            token: result.token, expiresAt: result.expiresAt
           }));
           sessionStorage.setItem(STORAGE_KEYS.browserAlive, '1');
+          // Older versions cached every account here, password hashes included.
+          localStorage.removeItem(STORAGE_KEYS.users);
         } catch (storageError) {
           throw new Error('Browser storage is unavailable. Enable site storage for this website, then sign in again.');
         }

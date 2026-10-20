@@ -11,6 +11,7 @@ import ReportsController from './pages/ReportsController.js';
 import faceBiometrics from '../services/FaceBiometrics.js';
 import Dialog from '../services/Dialog.js';
 import Icons from '../icons.js';
+import SheetsService from '../services/SheetsService.js';
 import { generatePGP, generateQRToken, schoolDateKey } from '../utils.js';
 import { loginUrl, SCHOOL_TIME_ZONE } from '../config.js';
 
@@ -98,7 +99,9 @@ export default class AppController {
     this.view.renderBottomNav(this.model);
 
     // No valid session? The one and only login lives on the landing page.
-    if (!this.model.currentUser) {
+    // A session saved before server-side login has no token and must sign in again.
+    if (!this.model.currentUser || this.model.isSessionExpired()) {
+      this.model.logout();
       this.redirectToLogin('Please sign in to continue.');
       return;
     }
@@ -131,7 +134,7 @@ export default class AppController {
       try {
         response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...SheetsService.authHeaders() },
           body: JSON.stringify(params),
           credentials: 'same-origin'
         });
@@ -148,6 +151,9 @@ export default class AppController {
 
       let result = null;
       try { result = await response.json(); } catch (_) { }
+      if (response.status === 401 && result && result.authRequired) {
+        window.dispatchEvent(new CustomEvent('pgp:auth-required'));
+      }
       if (!response.ok || !result || !result.success) {
         // `error` carries the specific reason (Google's own text on a 502);
         // `message` is the generic "Email could not be sent." Preferring
@@ -499,9 +505,15 @@ export default class AppController {
     // ── Session Timeout Checker (every 60 seconds) ────────
     this.sessionCheckInterval = setInterval(() => {
       if (this.model.currentUser && this.model.isSessionExpired()) {
-        this.performLogout('Session expired due to inactivity. Please log in again.');
+        this.performLogout('Your session has expired. Please log in again.');
       }
     }, 60000);
+
+    // The backend refused the session token (expired, password changed,
+    // account deactivated): sign out instead of failing every call quietly.
+    window.addEventListener('pgp:auth-required', () => {
+      if (this.model.currentUser) this.performLogout('Your session has expired. Please log in again.');
+    });
 
     // ── Back-Button Guard ─────────────────────────────────
     window.addEventListener('hashchange', () => {

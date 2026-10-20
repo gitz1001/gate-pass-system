@@ -1,4 +1,4 @@
-import { SHEETS_API_URL as API_URL } from '../config.js';
+import { SHEETS_API_URL as API_URL, STORAGE_KEYS } from '../config.js';
 
 // ════════════════════════════════════════════════════════════════
 // SheetsService — Google Sheets API Wrapper
@@ -8,9 +8,43 @@ import { SHEETS_API_URL as API_URL } from '../config.js';
 
 export default class SheetsService {
 
+  // ── Session token ─────────────────────────────────────────
+  // Issued by the Apps Script login action and kept in the session profile.
+  // The backend refuses every non-public action without it.
+  static authToken() {
+    try {
+      const session = JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null');
+      return (session && typeof session.token === 'string') ? session.token : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Headers for the Vercel email functions, which verify the same token.
+  static authHeaders() {
+    const token = this.authToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  // The backend answered "no valid session": tell the app shell to sign out,
+  // and throw so the caller does not treat the call as done.
+  static checkAuth(json) {
+    if (json && json.authRequired) {
+      window.dispatchEvent(new CustomEvent('pgp:auth-required'));
+      const error = new Error(json.error || 'Your session has expired. Please log in again.');
+      error.authRequired = true;
+      throw error;
+    }
+  }
+
+  static async login(username, password) {
+    return this.post('login', { username, password });
+  }
+
   // ── Generic GET request ───────────────────────────────────
   static async get(action, params = {}) {
-    const query = new URLSearchParams({ action, ...params, _t: Date.now() }).toString();
+    const token = this.authToken();
+    const query = new URLSearchParams({ action, ...params, ...(token ? { auth: token } : {}), _t: Date.now() }).toString();
     const url = `${API_URL}?${query}`;
     const maxAttempts = 3;
     let lastError = null;
@@ -39,6 +73,7 @@ export default class SheetsService {
           } catch (_) {
             throw new Error('Sheets API returned a non-JSON response (check the Web App deployment).');
           }
+          this.checkAuth(json);
           if (!json.success) throw new Error(json.error || 'API error');
           return json.data;
         }
@@ -64,7 +99,8 @@ export default class SheetsService {
   }
 
   static async post(action, body = {}) {
-    const url = `${API_URL}?action=${action}`;
+    const token = action === 'login' ? '' : this.authToken();
+    const url = `${API_URL}?action=${encodeURIComponent(action)}${token ? `&auth=${encodeURIComponent(token)}` : ''}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
@@ -81,6 +117,7 @@ export default class SheetsService {
       } catch (_) {
         throw new Error('Sheets API returned a non-JSON response (check the Web App deployment).');
       }
+      this.checkAuth(json);
       if (!json.success) throw new Error(json.error || 'API error');
       return json.data;
     } catch (err) {

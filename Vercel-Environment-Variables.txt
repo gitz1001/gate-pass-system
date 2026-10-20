@@ -6,6 +6,10 @@ GMAIL_CLIENT_SECRET = your Google OAuth Client Secret
 GMAIL_REFRESH_TOKEN = your generated Google OAuth refresh token
 GMAIL_USER_EMAIL = lux_maingate@southville.edu.ph
 
+Required for staff login (email and photo upload refuse requests without it):
+AUTH_SECRET = the value setupAuthSecret() prints in the Apps Script editor log.
+              It must be identical to the AUTH_SECRET Script Property.
+
 Optional:
 GMAIL_FROM_NAME = Southville Gatepass System
 APP_BASE_URL = https://e-gate-pass-theta.vercel.app

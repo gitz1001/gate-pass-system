@@ -42,6 +42,15 @@
 //
 // 8. cleanupBadPhotoCells() added — clears Photo cells left holding an error
 //    message by an older version of this script.
+//
+// 9. LOGIN MOVED TO THE SERVER.  The /exec URL is public, and every action used
+//    to run for anyone who called it; login only happened in the browser,
+//    after getUsers had sent it every password hash. Now the login action
+//    checks the password here and returns a signed session token, every
+//    non-public action requires that token and the right role, and no
+//    response ever contains a password column. See AUTHENTICATION below.
+//    BEFORE DEPLOYING: run setupAuthSecret() once and put the value it logs
+//    into Vercel as AUTH_SECRET.
 // ════════════════════════════════════════════════════════════════
 
 // Columns that hold phone numbers. Sheets stores these as numbers when they
@@ -86,6 +95,7 @@ function handleRequest(e) {
     // actions through doGet(), which could append empty rows when a GET URL was
     // visited or prefetched. Public application submissions remain POST-only.
     var postOnlyActions = {
+      login: true,
       addGate: true, updateGate: true, removeGate: true,
       addStudent: true, updateStudent: true, updateStudentStatus: true, removeStudent: true,
       addLog: true, addTGP: true, updateTGPStatus: true,
@@ -95,7 +105,31 @@ function handleRequest(e) {
       throw new Error('POST request with a JSON body required for this action.');
     }
 
+    // ── Access control ──
+    // The /exec URL is public (it ships in js/config.js), so every action
+    // decides here who may run it. PUBLIC_ACTIONS are the ones the public
+    // application forms need; everything else needs a signed session token
+    // from the login action, passed as ?auth=<token>.
+    if (!ACTION_ROLES.hasOwnProperty(action) && PUBLIC_ACTIONS.indexOf(action) === -1) {
+      // An unknown action is a failure, not a successful response that
+      // happens to carry an error.
+      return sendJSON({ success: false, error: 'Unknown action: ' + action });
+    }
+    var session = readSession_(params.auth);
+    if (PUBLIC_ACTIONS.indexOf(action) === -1 && authEnforced_()) {
+      if (!session) {
+        return sendJSON({ success: false, authRequired: true, error: 'Your session has expired. Please log in again.' });
+      }
+      if (ACTION_ROLES[action].indexOf(session.role) === -1) {
+        return sendJSON({ success: false, forbidden: true, error: 'Your account (' + session.role + ') is not allowed to do this.' });
+      }
+    }
+
     switch (action) {
+      case 'login':
+        result = login_(readBody_(e));
+        break;
+
       // ── READ operations (GET requests) ──
       case 'getStudents':
         result = getSheetData('students');
@@ -107,7 +141,7 @@ function handleRequest(e) {
         result = getSheetData('temporary_passes');
         break;
       case 'getUsers':
-        result = getSheetData('users');
+        result = publicUserRows_(getSheetData('users'));
         break;
       case 'getAll':
         result = getAllData();
@@ -134,20 +168,26 @@ function handleRequest(e) {
         result = addRow('scan_logs', readBody_(e));
         break;
       case 'addTGP':
-        result = addRow('temporary_passes', readBody_(e));
+        // The public TGP request form posts here without a session. Such a
+        // request can only ever create a pending pass; approving it stays a
+        // staff action.
+        var tgpEntry = readBody_(e);
+        if (!session) {
+          tgpEntry = neutralizeFormulas_(tgpEntry);
+          tgpEntry.status = 'pending';
+        }
+        result = addRow('temporary_passes', tgpEntry);
         break;
 
       // ── UPDATE operations ──
       case 'updateTGPStatus':
-        // TGP status changes are state-changing operations and must use POST.
-        // This prevents a bookmarked/prefetched GET URL from mutating data.
-        if (!e || !e.postData || !e.postData.contents) {
-          throw new Error('POST request required for updateTGPStatus.');
-        }
         var tgp = readBody_(e);
-        var tgpId = tgp.id;
-        var tgpStatus = tgp.status;
-        result = updateField('temporary_passes', tgpId, 'status', tgpStatus);
+        // Guards only mark a pass used at the gate; approving and rejecting
+        // stay with the office.
+        if (session && session.role === 'guard' && String(tgp.status) !== 'used') {
+          throw new Error('Guards can only mark a temporary pass as used.');
+        }
+        result = updateField('temporary_passes', tgp.id, 'status', tgp.status);
         break;
 
       case 'updateStudentStatus':
@@ -158,7 +198,12 @@ function handleRequest(e) {
 
       // ── FULL ROW UPDATE (POST with JSON body) ──
       case 'updateStudent':
-        result = updateRow('students', readBody_(e));
+        var studentData = readBody_(e);
+        // Guards enroll faces at the scanner and may change nothing else.
+        if (session && session.role === 'guard') {
+          studentData = { PassID: studentData.PassID, FaceDescriptor: studentData.FaceDescriptor };
+        }
+        result = updateRow('students', studentData);
         break;
 
       // ── DELETE operations ──
@@ -168,19 +213,15 @@ function handleRequest(e) {
         break;
 
       case 'submitApplication':
-        result = submitApplication(readBody_(e));
+        result = submitApplication(neutralizeFormulas_(readBody_(e)));
         break;
 
       // ── PHOTO UPLOAD to Google Drive (WebP only) ──
       case 'uploadPhoto':
-        result = uploadPhotoToDrive_(readBody_(e));
+        // Without a session the upload gets a unique file name, so the public
+        // forms can never replace or trash an existing student's photo.
+        result = uploadPhotoToDrive_(readBody_(e), !session);
         break;
-
-
-      default:
-        // An unknown action is a failure, not a successful response that
-        // happens to carry an error.
-        return sendJSON({ success: false, error: 'Unknown action: ' + action });
     }
 
     return sendJSON({ success: true, data: result });
@@ -188,6 +229,316 @@ function handleRequest(e) {
   } catch (err) {
     return sendJSON({ success: false, error: err.message });
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// AUTHENTICATION
+// ════════════════════════════════════════════════════════════════
+//
+// Login happens here, never in the browser. The login action checks the
+// password against the users tab and answers with a signed session token:
+//
+//   base64url(JSON payload) + '.' + base64url(HMAC-SHA256(payload, AUTH_SECRET))
+//
+// Every non-public action needs that token as ?auth=<token>. The Vercel email
+// functions verify the same token with the same AUTH_SECRET, so the secret
+// must be identical in Script Properties and in Vercel.
+//
+// The payload carries a fingerprint of the stored password hash, so changing
+// a password in the users tab ends every session signed with the old one.
+// Deactivating or deleting a user ends their sessions within USER_CACHE_SECONDS.
+//
+// SETUP: run setupAuthSecret() once from the editor and copy the value it logs
+// into Vercel as AUTH_SECRET.
+//
+// EMERGENCY: setting the Script Property AUTH_ENFORCE to false turns the
+// session check off again (the pre-login behaviour). Logins still work. Only
+// use it to recover from a broken rollout, and switch it back.
+
+// Actions anyone may call: what the public application and TGP request forms need.
+var PUBLIC_ACTIONS = ['login', 'getGates', 'submitApplication', 'uploadPhoto', 'addTGP'];
+
+// Who may call every other action. Roles match the 'role' column of the users tab.
+var ACTION_ROLES = {
+  getAll:              ['admin', 'secretary', 'guard'],
+  getStudents:         ['admin', 'secretary', 'guard'],
+  getLogs:             ['admin', 'secretary', 'guard'],
+  getTGP:              ['admin', 'secretary', 'guard'],
+  addLog:              ['admin', 'secretary', 'guard'],
+  updateTGPStatus:     ['admin', 'secretary', 'guard'],  // guards: 'used' only
+  updateStudent:       ['admin', 'secretary', 'guard'],  // guards: FaceDescriptor only
+  addStudent:          ['admin', 'secretary'],
+  updateStudentStatus: ['admin', 'secretary'],
+  removeStudent:       ['admin', 'secretary'],
+  getUsers:            ['admin'],
+  addGate:             ['admin'],
+  updateGate:          ['admin'],
+  removeGate:          ['admin']
+};
+
+var SESSION_HOURS = 12;
+var USER_CACHE_SECONDS = 120;
+var LOGIN_MAX_FAILURES = 5;
+var LOGIN_LOCK_SECONDS = 15 * 60;
+var PASSWORD_ITERATIONS = 1000;
+
+function authEnforced_() {
+  return String(PropertiesService.getScriptProperties().getProperty('AUTH_ENFORCE') || '').toLowerCase() !== 'false';
+}
+
+function authSecret_() {
+  var secret = PropertiesService.getScriptProperties().getProperty('AUTH_SECRET');
+  if (!secret || secret.length < 32) {
+    throw new Error('Login is not set up yet. An administrator must run setupAuthSecret() in the Apps Script editor.');
+  }
+  return secret;
+}
+
+/**
+ * Run once from the editor. Creates AUTH_SECRET if it is missing and logs it
+ * so it can be copied into Vercel. Running it again prints the same secret.
+ */
+function setupAuthSecret() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty('AUTH_SECRET');
+  if (!secret) {
+    secret = bytesToHex_(Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      Utilities.getUuid() + Utilities.getUuid() + Date.now() + Math.random()
+    ));
+    props.setProperty('AUTH_SECRET', secret);
+    Logger.log('Created a new AUTH_SECRET.');
+  }
+  Logger.log('Copy this into Vercel → Settings → Environment Variables as AUTH_SECRET (Production and Preview):');
+  Logger.log(secret);
+}
+
+/**
+ * Start over with a new secret. Every session ends, and Vercel's AUTH_SECRET
+ * must be updated to the new value before email works again.
+ */
+function rotateAuthSecret() {
+  PropertiesService.getScriptProperties().deleteProperty('AUTH_SECRET');
+  setupAuthSecret();
+}
+
+function bytesToHex_(bytes) {
+  var hex = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = (bytes[i] + 256) % 256;
+    hex += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return hex;
+}
+
+function base64Url_(value) {
+  return Utilities.base64EncodeWebSafe(value).replace(/=+$/, '');
+}
+
+function hmacHex_(message, key) {
+  return bytesToHex_(Utilities.computeHmacSha256Signature(message, key));
+}
+
+/** Compare two strings without returning early on the first difference. */
+function safeEqual_(a, b) {
+  a = String(a); b = String(b);
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+// ── Password storage ─────────────────────────────────────────
+//
+// New format: v2$<iterations>$<salt hex>$<hash hex>, a salted, iterated
+// HMAC-SHA256. Older rows hold either an unsalted SHA-256 hex digest or
+// plaintext; both still log in once and are upgraded to v2 on that login.
+
+function hashPasswordV2_(password, saltHex, iterations) {
+  saltHex = saltHex || bytesToHex_(Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Math.random())).slice(0, 32);
+  iterations = iterations || PASSWORD_ITERATIONS;
+  var value = Utilities.computeHmacSha256Signature(String(password), saltHex);
+  for (var i = 1; i < iterations; i++) {
+    value = Utilities.computeHmacSha256Signature(value, Utilities.newBlob(saltHex).getBytes());
+  }
+  return 'v2$' + iterations + '$' + saltHex + '$' + bytesToHex_(value);
+}
+
+function verifyPassword_(password, stored) {
+  stored = String(stored || '').trim();
+  if (!stored || !password) return false;
+  var parts = stored.split('$');
+  if (parts[0] === 'v2' && parts.length === 4) {
+    return safeEqual_(hashPasswordV2_(password, parts[2], parseInt(parts[1], 10)), stored);
+  }
+  if (/^[a-f0-9]{64}$/i.test(stored)) return safeEqual_(sha256Hex_(password), stored.toLowerCase());
+  return safeEqual_(password, stored);
+}
+
+function isV2Hash_(stored) {
+  return /^v2\$\d+\$[a-f0-9]+\$[a-f0-9]{64}$/.test(String(stored || '').trim());
+}
+
+// ── Users tab ────────────────────────────────────────────────
+
+function usersSheetInfo_() {
+  var sheet = getConfiguredSpreadsheet_().getSheetByName('users');
+  if (!sheet) throw new Error('Sheet tab "users" not found.');
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  function col(name) {
+    var i = headers.indexOf(name);
+    return i !== -1 ? i : headers.map(function (h) { return h.toLowerCase(); }).indexOf(name.toLowerCase());
+  }
+  return {
+    sheet: sheet, data: data, headers: headers,
+    user: col('username'), password: col('password'), role: col('role'),
+    name: col('name'), gate: col('gate'), status: col('status')
+  };
+}
+
+function findUserRow_(info, username) {
+  var wanted = String(username || '').trim();
+  if (!wanted || info.user === -1) return -1;
+  for (var i = 1; i < info.data.length; i++) {
+    if (String(info.data[i][info.user]).trim() === wanted) return i;
+  }
+  return -1;
+}
+
+function userIsActive_(info, row) {
+  var status = info.status === -1 ? '' : String(info.data[row][info.status] || '').trim().toLowerCase();
+  return !status || status === 'active';
+}
+
+function passwordFingerprint_(storedHash) {
+  return hmacHex_('pv:' + String(storedHash || ''), authSecret_()).slice(0, 16);
+}
+
+/** User rows without the password column, safe to hand to a browser. */
+function publicUserRows_(rows) {
+  return (rows || []).map(function (u) {
+    var copy = {};
+    Object.keys(u).forEach(function (k) {
+      if (String(k).toLowerCase() !== 'password') copy[k] = u[k];
+    });
+    return copy;
+  });
+}
+
+// ── Login ────────────────────────────────────────────────────
+
+function login_(body) {
+  var username = String((body && body.username) || '').trim();
+  var password = String((body && body.password) || '');
+  var fail = 'Invalid username or password.';
+  if (!username || !password || username.length > 100 || password.length > 200) throw new Error(fail);
+
+  var cache = CacheService.getScriptCache();
+  var failKey = 'loginfail:' + username.toLowerCase();
+  var failures = parseInt(cache.get(failKey) || '0', 10);
+  if (failures >= LOGIN_MAX_FAILURES) {
+    throw new Error('Too many failed attempts. Wait 15 minutes, then try again.');
+  }
+
+  var secret = authSecret_();
+  var info = usersSheetInfo_();
+  if (info.password === -1 || info.role === -1) throw new Error('The users tab needs username, password and role columns.');
+  var row = findUserRow_(info, username);
+  var stored = row === -1 ? '' : String(info.data[row][info.password] || '').trim();
+  var ok = row !== -1 && verifyPassword_(password, stored) && userIsActive_(info, row) &&
+    String(info.data[row][info.role] || '').trim() !== '';
+
+  if (!ok) {
+    cache.put(failKey, String(failures + 1), LOGIN_LOCK_SECONDS);
+    throw new Error(fail);
+  }
+  cache.remove(failKey);
+
+  // Upgrade a plaintext or unsalted hash to v2 now that we hold the password.
+  if (!isV2Hash_(stored)) {
+    stored = hashPasswordV2_(password);
+    info.sheet.getRange(row + 1, info.password + 1).setValue(stored);
+    cache.remove('user:' + username);
+  }
+
+  var user = {
+    username: String(info.data[row][info.user]).trim(),
+    name: info.name === -1 ? '' : String(info.data[row][info.name] || '').trim(),
+    role: String(info.data[row][info.role]).trim().toLowerCase(),
+    gate: info.gate === -1 ? '' : String(info.data[row][info.gate] || '').trim()
+  };
+  var now = Date.now();
+  var payload = base64Url_(Utilities.newBlob(JSON.stringify({
+    u: user.username, r: user.role, iat: now, exp: now + SESSION_HOURS * 3600 * 1000,
+    pv: passwordFingerprint_(stored)
+  })).getBytes());
+  var token = payload + '.' + base64Url_(Utilities.computeHmacSha256Signature(payload, secret));
+  return { token: token, expiresAt: now + SESSION_HOURS * 3600 * 1000, user: user };
+}
+
+// ── Session check ────────────────────────────────────────────
+
+/**
+ * Returns { username, role } for a valid token, or null. Never throws: a bad
+ * token is treated exactly like no token.
+ */
+function readSession_(token) {
+  try {
+    token = String(token || '');
+    var dot = token.indexOf('.');
+    if (dot < 1) return null;
+    var payload = token.slice(0, dot);
+    var expected = base64Url_(Utilities.computeHmacSha256Signature(payload, authSecret_()));
+    if (!safeEqual_(expected, token.slice(dot + 1))) return null;
+
+    var padded = payload + '===='.slice((payload.length + 3) % 4 + 1);
+    var claims = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(padded)).getDataAsString());
+    if (!claims || !claims.u || !(Number(claims.exp) > Date.now())) return null;
+
+    var current = currentUserState_(claims.u);
+    if (!current || !current.active || current.pv !== claims.pv) return null;
+    return { username: claims.u, role: current.role };
+  } catch (_) {
+    return null;
+  }
+}
+
+/** The user's current role/status/password fingerprint, cached briefly. */
+function currentUserState_(username) {
+  var cache = CacheService.getScriptCache();
+  var key = 'user:' + username;
+  var hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+
+  var info = usersSheetInfo_();
+  var row = findUserRow_(info, username);
+  var state = row === -1 ? { active: false } : {
+    active: userIsActive_(info, row),
+    role: String(info.data[row][info.role] || '').trim().toLowerCase(),
+    pv: passwordFingerprint_(String(info.data[row][info.password] || '').trim())
+  };
+  cache.put(key, JSON.stringify(state), USER_CACHE_SECONDS);
+  return state;
+}
+
+// ── Untrusted input ──────────────────────────────────────────
+
+/**
+ * A public form value starting with = + - @ would be stored by Sheets as a
+ * formula (IMPORTXML, HYPERLINK, ...). Prefixing an apostrophe stores it as
+ * plain text instead; Sheets does not display the apostrophe.
+ */
+function neutralizeFormulas_(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  Object.keys(obj).forEach(function (k) {
+    var v = obj[k];
+    if (typeof v === 'string' && /^[=+\-@]/.test(v)) obj[k] = "'" + v;
+    else if (v && typeof v === 'object' && !Array.isArray(v)) neutralizeFormulas_(v);
+  });
+  return obj;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -281,7 +632,7 @@ function getAllData() {
     students: getSheetDataFromSpreadsheet_(ss, 'students'),
     scan_logs: getSheetDataFromSpreadsheet_(ss, 'scan_logs'),
     temporary_passes: getSheetDataFromSpreadsheet_(ss, 'temporary_passes'),
-    users: getSheetDataFromSpreadsheet_(ss, 'users'),
+    users: publicUserRows_(getSheetDataFromSpreadsheet_(ss, 'users')),
     gates: ss.getSheetByName('gates') ? getSheetDataFromSpreadsheet_(ss, 'gates') : []
   };
 }
@@ -527,7 +878,12 @@ function uploadPhotoToDrive(data) {
   return uploadPhotoToDrive_(data);
 }
 
-function uploadPhotoToDrive_(data) {
+/**
+ * @param {Object} data
+ * @param {boolean} [uniqueName] true for an unauthenticated upload: the file
+ *   gets a fresh name and nothing existing is trashed.
+ */
+function uploadPhotoToDrive_(data, uniqueName) {
   data = data || {};
   if (!data.studentId) throw new Error('Student ID is required.');
   if (!data.base64) throw new Error('No photo data received.');
@@ -543,10 +899,14 @@ function uploadPhotoToDrive_(data) {
     throw new Error('Photo is not a valid WebP image.');
   }
   var safeId = String(data.studentId).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 120) || 'photo';
-  var fileName = safeId + '.webp';
+  var fileName = uniqueName
+    ? safeId + '-' + Utilities.getUuid().slice(0, 8) + '.webp'
+    : safeId + '.webp';
   var folder = getPhotoSubfolder_(kind);
-  var existing = folder.getFilesByName(fileName);
-  while (existing.hasNext()) existing.next().setTrashed(true);
+  if (!uniqueName) {
+    var existing = folder.getFilesByName(fileName);
+    while (existing.hasNext()) existing.next().setTrashed(true);
+  }
   var blob = Utilities.newBlob(bytes, 'image/webp', fileName);
   var file = folder.createFile(blob);
   // Do not call setSharing() here. The folder's sharing policy controls access;
@@ -661,58 +1021,62 @@ function cleanupBadPhotoCells() {
 }
 
 /**
- * Replace every plaintext password in the 'users' tab with its SHA-256 hash.
+ * Replace every plaintext password in the 'users' tab with a salted v2 hash.
  *
- * WHY THIS MATTERS: getUsers is an open action on this Web App, and the /exec
- * URL ships inside js/config.js on the public site. Whatever sits in the
- * Password column is readable by anyone who fetches that URL. Storing the
- * hash instead means a leak no longer hands over working logins.
+ * HOW TO SET OR RESET A PASSWORD: type the new password into the user's
+ * password cell, then run this function. Staff can also simply log in: the
+ * login action upgrades a plaintext or old SHA-256 cell to v2 by itself.
  *
- * SAFE TO RUN: the login already compares the SHA-256 hash first
- * (index.html and js/models/AppModel.js check hashed OR plaintext), so staff
- * keep signing in with the passwords they already use. Rows that are already
- * hashed are skipped, so running it twice is harmless.
- *
- * The digest matches the browser's hashPassword() exactly: SHA-256 over the
- * UTF-8 bytes, lowercase hex.
- *
- * HOW TO RUN: open the Apps Script editor, pick hashPlaintextPasswords from
- * the function list and click Run. Read the log. Then change the passwords
- * that were exposed — hashing protects the column from here on, it does not
- * un-leak a password that has already been published.
+ * Rows already holding a v2 hash or an old SHA-256 hash are skipped (an old
+ * hash can only be upgraded at login, when the password is known), so running
+ * it twice is harmless. Changing a password ends that user's open sessions.
  */
 function hashPlaintextPasswords() {
-  var ss = getConfiguredSpreadsheet_();
-  var sheet = ss.getSheetByName('users');
-  if (!sheet) throw new Error('Sheet tab "users" not found.');
-
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0];
-
-  var pwCol = headers.indexOf('password');
-  if (pwCol === -1) pwCol = headers.indexOf('Password');
-  if (pwCol === -1) throw new Error('No "password" column found in the users tab.');
-
-  var userCol = headers.indexOf('username');
-  if (userCol === -1) userCol = headers.indexOf('Username');
+  var info = usersSheetInfo_();
+  if (info.password === -1) throw new Error('No "password" column found in the users tab.');
 
   var hashed = 0, skipped = 0, blank = 0;
-  for (var i = 1; i < data.length; i++) {
-    var value = String(data[i][pwCol] || '').trim();
-    var who = userCol === -1 ? ('row ' + (i + 1)) : String(data[i][userCol] || ('row ' + (i + 1)));
+  for (var i = 1; i < info.data.length; i++) {
+    var value = String(info.data[i][info.password] || '').trim();
+    var who = info.user === -1 ? ('row ' + (i + 1)) : String(info.data[i][info.user] || ('row ' + (i + 1)));
 
     if (!value) { blank++; continue; }
-    if (/^[a-f0-9]{64}$/i.test(value)) { skipped++; continue; }   // already a SHA-256 hash
+    if (isV2Hash_(value) || /^[a-f0-9]{64}$/i.test(value)) { skipped++; continue; }
 
-    sheet.getRange(i + 1, pwCol + 1).setValue(sha256Hex_(value));
+    info.sheet.getRange(i + 1, info.password + 1).setValue(hashPasswordV2_(value));
+    CacheService.getScriptCache().remove('user:' + who);
     hashed++;
     Logger.log('Hashed the password for ' + who);
   }
 
   Logger.log('Done. Hashed: ' + hashed + ', already hashed: ' + skipped + ', blank: ' + blank);
-  if (hashed > 0) {
-    Logger.log('NOW CHANGE THOSE PASSWORDS. They were readable in plaintext, so treat every one of them as compromised.');
+}
+
+/**
+ * Read-only check: which accounts still use a password from the list below.
+ * These include the defaults that were exposed in the repository history.
+ * Logs usernames only, never a password.
+ */
+function reportWeakPasswords() {
+  var weak = ['admin123', 'sec123', 'guard123', 'admin', 'password', 'password123',
+              '123456', '12345678', 'secretary', 'guard', 'sisc123', 'southville'];
+  var info = usersSheetInfo_();
+  if (info.password === -1) throw new Error('No "password" column found in the users tab.');
+
+  var found = 0;
+  for (var i = 1; i < info.data.length; i++) {
+    var stored = String(info.data[i][info.password] || '').trim();
+    var who = info.user === -1 ? ('row ' + (i + 1)) : String(info.data[i][info.user]);
+    if (!stored) { Logger.log(who + ': NO PASSWORD SET'); found++; continue; }
+    for (var w = 0; w < weak.length; w++) {
+      if (verifyPassword_(weak[w], stored)) {
+        Logger.log(who + ': uses a known weak or leaked password. Change it now.');
+        found++;
+        break;
+      }
+    }
   }
+  Logger.log(found ? 'Done. Accounts to fix: ' + found : 'Done. No account uses a password from the list.');
 }
 
 /**
@@ -750,7 +1114,7 @@ function reportPlaintextPasswords() {
   var plain = 0;
   for (var i = 1; i < data.length; i++) {
     var value = String(data[i][pwCol] || '').trim();
-    if (!value || /^[a-f0-9]{64}$/i.test(value)) continue;
+    if (!value || isV2Hash_(value) || /^[a-f0-9]{64}$/i.test(value)) continue;
     plain++;
     Logger.log('Plaintext password on row ' + (i + 1) +
       (userCol === -1 ? '' : ' (' + data[i][userCol] + ')') +

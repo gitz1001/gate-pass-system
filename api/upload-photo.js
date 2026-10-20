@@ -1,5 +1,5 @@
 const { put } = require("@vercel/blob");
-const { rejected, allowedOrigins } = require("./_lib/request-guard");
+const { rejected, rejectedUnlessStaff, allowedOrigins } = require("./_lib/request-guard");
 
 function send(res, status, body) {
   res.status(status).json(body);
@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
       res.setHeader("Vary", "Origin");
     }
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     return res.status(204).end();
   }
 
@@ -45,6 +45,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (rejected(req, res, { name: "upload" })) return;
+  if (rejectedUnlessStaff(req, res)) return;
 
   try {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {

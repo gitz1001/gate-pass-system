@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
-const { rejected } = require('./_lib/request-guard');
+const { rejected, rejectedUnlessStaff } = require('./_lib/request-guard');
 
 const DEFAULT_FROM_NAME = 'Southville Gatepass System';
 const BRAND = '#341539';
@@ -318,6 +318,8 @@ module.exports = async function handler(req, res) {
   // This endpoint sends mail from the school's own address. Without a caller
   // check anyone who knows the URL can do that too. See api/_lib/request-guard.
   if (rejected(req, res, { name: 'email' })) return;
+  // Only a logged-in staff member may send mail or run the self-test.
+  if (rejectedUnlessStaff(req, res)) return;
 
   const config = getOAuthConfig();
   const missing = Object.entries({

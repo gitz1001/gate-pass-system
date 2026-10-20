@@ -1,5 +1,6 @@
-import { resolvePhotoUrl, hasPhoto, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages, compressImageToBlob, uploadPhotoLocally, renderQRCodeInto, ensureQRCodeLoaded, ensureHtml2CanvasLoaded, schoolDateLabel } from '../../utils.js';
+import { resolvePhotoUrl, hasPhoto, generatePaginationHTML, bindPaginationEvents, generateQRToken, waitForImages, compressImageToBlob, uploadPhotoLocally, renderQRCodeInto, ensureQRCodeLoaded, ensureHtml2CanvasLoaded, schoolDateLabel, escapeHTML } from '../../utils.js';
 import Dialog from '../../services/Dialog.js';
+import SheetsService from '../../services/SheetsService.js';
 import { setButtonLoading } from '../../views/AppView.js';
 
 export default class TGPController {
@@ -272,7 +273,7 @@ export default class TGPController {
           ? `<img src="${escapeHTML(resolvePhotoUrl(student.photo))}" alt="${escapeHTML(sName)} student photo" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">`
           : hasPhoto(tgp.photo)
           ? `<img src="${escapeHTML(resolvePhotoUrl(tgp.photo))}" alt="${escapeHTML(sName)} gate-pass photo" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#e08700;">${sName.substring(0,2).toUpperCase()}</div>`;
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#e08700;">${escapeHTML(sName.substring(0,2).toUpperCase())}</div>`;
 
         const target = document.getElementById('tgp-card-render-target');
         target.innerHTML = `
@@ -283,27 +284,27 @@ export default class TGPController {
             </div>
             <div style="padding:20px;text-align:center;">
               <div style="width:80px;height:80px;margin:0 auto 12px;border-radius:10px;border:3px solid #e08700;overflow:hidden;background:#fef3e0;">${photoHtml}</div>
-              <div style="font-size:18px;font-weight:800;color:#1f2937;margin-bottom:2px;">${sName}</div>
-              <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:12px;">${sGrade}</div>
+              <div style="font-size:18px;font-weight:800;color:#1f2937;margin-bottom:2px;">${escapeHTML(sName)}</div>
+              <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:12px;">${escapeHTML(sGrade)}</div>
               
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;margin-bottom:16px;">
                 <div style="background:#fef3e0;padding:8px 10px;border-radius:6px;">
                   <div style="font-size:9px;color:#b06c00;text-transform:uppercase;font-weight:700;">Valid Date</div>
-                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${dateStr}</div>
+                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${escapeHTML(dateStr)}</div>
                 </div>
                 <div style="background:#fef3e0;padding:8px 10px;border-radius:6px;">
                   <div style="font-size:9px;color:#b06c00;text-transform:uppercase;font-weight:700;">Gate</div>
-                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${tgp.gate}</div>
+                  <div style="font-size:12px;font-weight:700;color:#1f2937;margin-top:2px;">${escapeHTML(tgp.gate)}</div>
                 </div>
               </div>
 
               <div style="background:#f5f4f8;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;">
                 <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Scan to Verify</div>
                 <div id="tgp-qrcode" style="border-radius:6px;overflow:hidden;line-height:0;"></div>
-                <div style="font-size:11px;font-weight:700;font-family:monospace;color:#e08700;margin-top:5px;letter-spacing:1px;">${tgp.id}</div>
+                <div style="font-size:11px;font-weight:700;font-family:monospace;color:#e08700;margin-top:5px;letter-spacing:1px;">${escapeHTML(tgp.id)}</div>
               </div>
             </div>
-            <div style="background:#e08700;padding:8px;text-align:center;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.5px;">ONE-DAY PASS · REQUIRES APPROVAL · ${tgp.requester ? 'Requested by: ' + tgp.requester : ''}</div>
+            <div style="background:#e08700;padding:8px;text-align:center;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.5px;">ONE-DAY PASS · REQUIRES APPROVAL · ${tgp.requester ? 'Requested by: ' + escapeHTML(tgp.requester) : ''}</div>
           </div>`;
 
         // Generate QR Code
@@ -403,7 +404,7 @@ export default class TGPController {
 
           const res = await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...SheetsService.authHeaders() },
             body: JSON.stringify({
               email_type: 'tgp_delivery',
               to_email: tgp.studentEmail,
