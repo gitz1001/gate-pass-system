@@ -18,7 +18,7 @@ export function schoolDateKey(value = new Date()) {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}
+}sadasdasdasdasdasdasddsadsadsadsadsa
 
 /** Format a date-only value in the school's timezone without UTC day drift. */
 export function schoolDateLabel(value, options = {}) {
