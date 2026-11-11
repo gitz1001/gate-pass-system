@@ -18,7 +18,7 @@ export function schoolDateKey(value = new Date()) {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}sadasdasdasdasdasdasddsadsadsadsadsa
+}
 
 /** Format a date-only value in the school's timezone without UTC day drift. */
 export function schoolDateLabel(value, options = {}) {
@@ -61,6 +61,10 @@ export const EXTERNAL_SCRIPTS = Object.freeze({
 });
 
 function waitForGlobal(globalName, timeoutMs = 8000) {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Global script loading requires a browser environment.'));
+  }
+
   if (!globalName || typeof window[globalName] !== 'undefined') {
     return Promise.resolve(globalName ? window[globalName] : true);
   }
@@ -192,7 +196,12 @@ export function escapeHTML(str) {
 }
 
 export async function hashPassword(message) {
-  const msgUint8 = new TextEncoder().encode(message);
+  const normalized = message == null ? '' : String(message);
+  if (typeof crypto === 'undefined' || !crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+    throw new Error('Password hashing requires Web Crypto support in the browser.');
+  }
+
+  const msgUint8 = new TextEncoder().encode(normalized);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -228,6 +237,7 @@ export function compressImageToBlob(file, maxWidth = 500, maxHeight = 500, quali
       reject(new Error('Selected photo is not a valid image file. Please choose the photo again.'));
       return;
     }
+
     const sourceBlob = (file instanceof Blob)
       ? file
       : new Blob([file], { type: file.type || 'application/octet-stream' });
@@ -246,6 +256,12 @@ export function compressImageToBlob(file, maxWidth = 500, maxHeight = 500, quali
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('Canvas rendering is not available in this browser.'));
+          return;
+        }
+
         ctx.drawImage(img, 0, 0, width, height);
 
         canvas.toBlob(blob => {
@@ -306,6 +322,12 @@ export function resolvePhotoUrl(photoValue) {
   // Matched strictly — image subtype, then a comma, then a non-empty payload —
   // so a truncated cell cannot put a bare "data:" into an <img src>.
   if (/^data:image\/[\w.+-]+(?:;[^,]*)?,.+$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Blob URLs are valid browser image sources and are common after local image
+  // previews or uploaded files are converted to object URLs.
+  if (trimmed.startsWith('blob:')) {
     return trimmed;
   }
 
@@ -844,28 +866,32 @@ export function generateQRToken(length = 8) {
 // Pagination UI Helper
 // ════════════════════════════════════════════════════════════════
 export function generatePaginationHTML(pagination, totalItems) {
-  const maxPage = Math.ceil(totalItems / pagination.limit) || 1;
-  const start = (pagination.page - 1) * pagination.limit;
-  const end = Math.min(start + pagination.limit, totalItems);
-  
+  const safePagination = pagination || {};
+  const pageSize = Number.isFinite(safePagination.limit) && safePagination.limit > 0 ? safePagination.limit : 10;
+  const currentPage = Number.isFinite(safePagination.page) && safePagination.page > 0 ? safePagination.page : 1;
+  const maxPage = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(currentPage, maxPage);
+  const start = (safePage - 1) * pageSize;
+  const end = Math.min(start + pageSize, totalItems);
+
   let infoText = totalItems === 0 ? 'No records found' : `Showing ${start + 1} to ${end} of ${totalItems}`;
-  
+
   let pageButtons = '';
-  let startPage = Math.max(1, pagination.page - 2);
+  let startPage = Math.max(1, safePage - 2);
   let endPage = Math.min(maxPage, startPage + 4);
   if (endPage - startPage < 4) {
     startPage = Math.max(1, endPage - 4);
   }
-  
+
   if (startPage > 1) {
     pageButtons += `<button class="page-num" data-page="1">1</button>`;
     if (startPage > 2) pageButtons += `<span class="page-ellipsis">...</span>`;
   }
-  
+
   for (let i = startPage; i <= endPage; i++) {
-    pageButtons += `<button class="page-num ${i === pagination.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+    pageButtons += `<button class="page-num ${i === safePage ? 'active' : ''}" data-page="${i}">${i}</button>`;
   }
-  
+
   if (endPage < maxPage) {
     if (endPage < maxPage - 1) pageButtons += `<span class="page-ellipsis">...</span>`;
     pageButtons += `<button class="page-num" data-page="${maxPage}">${maxPage}</button>`;
@@ -874,11 +900,11 @@ export function generatePaginationHTML(pagination, totalItems) {
   return `
     <div class="pagination-info">${infoText}</div>
     <div class="pagination-controls">
-      <button class="page-nav" id="btn-page-prev" ${pagination.page === 1 ? 'disabled' : ''}>
+      <button class="page-nav" id="btn-page-prev" ${safePage === 1 ? 'disabled' : ''}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><polyline points="15 18 9 12 15 6"></polyline></svg> Prev
       </button>
       ${pageButtons}
-      <button class="page-nav" id="btn-page-next" ${pagination.page === maxPage ? 'disabled' : ''}>
+      <button class="page-nav" id="btn-page-next" ${safePage === maxPage ? 'disabled' : ''}>
         Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </button>
     </div>
@@ -886,21 +912,31 @@ export function generatePaginationHTML(pagination, totalItems) {
 }
 
 export function bindPaginationEvents(container, pagination, updateCallback) {
-  if (!container) return;
+  if (!container || !pagination || typeof updateCallback !== 'function') return;
   const prevBtn = container.querySelector('#btn-page-prev');
   const nextBtn = container.querySelector('#btn-page-next');
   const pageNums = container.querySelectorAll('.page-num');
-  
+
   if (prevBtn) prevBtn.addEventListener('click', () => {
-    if (pagination.page > 1) { pagination.page--; updateCallback(); }
+    if (pagination.page > 1) {
+      pagination.page -= 1;
+      updateCallback();
+    }
   });
   if (nextBtn) nextBtn.addEventListener('click', () => {
-    pagination.page++; updateCallback();
+    const maxPage = Math.max(1, Math.ceil((Number(pagination.totalItems) || 0) / (Number(pagination.limit) || 10)));
+    if (pagination.page < maxPage) {
+      pagination.page += 1;
+      updateCallback();
+    }
   });
   pageNums.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      pagination.page = parseInt(e.currentTarget.dataset.page, 10);
-      updateCallback();
+      const nextPage = parseInt(e.currentTarget.dataset.page, 10);
+      if (Number.isFinite(nextPage) && nextPage > 0) {
+        pagination.page = nextPage;
+        updateCallback();
+      }
     });
   });
 }
