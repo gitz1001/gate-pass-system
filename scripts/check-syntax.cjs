@@ -54,7 +54,7 @@ runCheck(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), 'script', 'Code.gs
 
 // Check inline browser scripts without executing them. External <script src>
 // files are covered separately above where applicable.
-for (const htmlFile of ['index.html', 'app.html', 'newForm.html', 'tgpForm.html', 'privacy-policy.html', 'terms-of-service.html', '404.html']) {
+for (const htmlFile of ['index.html', 'app.html', 'newForm.html', 'privacy-policy.html', 'terms-of-service.html', '404.html']) {
   const html = fs.readFileSync(path.join(root, htmlFile), 'utf8');
   const scriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
   let match;

@@ -128,17 +128,6 @@ export default class SheetsService {
     return this.post('addLog', logEntry);
   }
 
-  // ── Temporary Gate Passes ─────────────────────────────────
-  static async getTGP() { return this.get('getTGP'); }
-
-  static async addTGP(tgp) {
-    return this.post('addTGP', tgp);
-  }
-
-  static async updateTGPStatus(id, status) {
-    return this.post('updateTGPStatus', { id, status });
-  }
-
   // ── Users ─────────────────────────────────────────────────
   static async getUsers() { return this.get('getUsers'); }
 

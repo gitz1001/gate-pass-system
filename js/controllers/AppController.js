@@ -4,7 +4,6 @@ import DashboardController from './pages/DashboardController.js';
 import LogsController from './pages/LogsController.js';
 import PGPController from './pages/PGPController.js';
 import SettingsController from './pages/SettingsController.js';
-import TGPController from './pages/TGPController.js';
 import StudentsController from './pages/StudentsController.js';
 import ScannerController from './pages/ScannerController.js';
 import ReportsController from './pages/ReportsController.js';
@@ -565,7 +564,6 @@ export default class AppController {
     if (pageId === 'logs') LogsController.bind(this);
     if (pageId === 'pgp') PGPController.bind(this);
     if (pageId === 'settings') SettingsController.bind(this);
-    if (pageId === 'tgp') TGPController.bind(this);
     if (pageId === 'reports') ReportsController.bind(this);
   }
 
@@ -871,7 +869,7 @@ export default class AppController {
     let student = null;
     let isDenied = false;
     let msg = '';
-    let passType = 'PGP';
+    const passType = 'PGP';
     let designatedGate = 'Any authorized gate'; // fallback
 
     const gateSelect = document.getElementById('scan-gate');
@@ -884,61 +882,33 @@ export default class AppController {
       return allowedStr.includes(scannerGate);
     };
 
-    // 1. Check if it's a TGP
-    const tgp = this.model.getTGP(rawId);
-    if (tgp) {
-      passType = 'TGP';
-      student = this.model.getStudentByPassId(tgp.studentId) || this.model.getStudentByStudId(tgp.studentId);
-      designatedGate = tgp.gate || 'Any authorized gate';
+    // Look up the PGP by Pass ID or Student ID
+    student = this.model.students.find(s =>
+      s.id === rawId ||
+      s.studid === rawId ||
+      s.pgp === rawId
+    );
 
-      const todayStr = schoolDateKey(new Date());
-      // A pass row with a blank status used to throw here on .toUpperCase(),
-      // which aborted the whole scan: no log written, no result shown, the
-      // guard left with a frozen screen.
-      const tgpStatus = String(tgp.status || '').trim().toLowerCase();
-      if (tgpStatus !== 'approved') {
+    if (!student) {
+      isDenied = true;
+      msg = 'Student not found in the system.';
+    } else if (!isManual && student.qrToken && token !== student.qrToken) {
+      // Cryptographic Token Verification Failed
+      isDenied = true;
+      msg = 'FORGED OR INVALID QR CODE';
+    } else {
+      designatedGate = student.preferredGate || '';
+      if (student.status !== 'active') {
         isDenied = true;
-        msg = tgpStatus === 'used'
-          ? 'Pass already used'
-          : `TGP is ${(tgpStatus || 'not approved').toUpperCase()}`;
-      } else if (tgp.validDate !== todayStr) {
+        msg = `Pass is ${student.status}`;
+      } else if (!designatedGate) {
         isDenied = true;
-        msg = `TGP valid only for ${tgp.validDate}`;
+        msg = 'No gate assigned to this pass. Contact the admin.';
       } else if (!isGateAllowed(designatedGate)) {
         isDenied = true;
         msg = `Wrong gate. Must use: ${designatedGate}`;
       } else {
-        msg = 'Valid Temporary Pass';
-      }
-    } else {
-      // 2. Check PGP / Student ID
-      student = this.model.students.find(s =>
-        s.id === rawId ||
-        s.studid === rawId ||
-        s.pgp === rawId
-      );
-
-      if (!student) {
-        isDenied = true;
-        msg = 'Student not found in the system.';
-      } else if (!isManual && student.qrToken && token !== student.qrToken) {
-        // Cryptographic Token Verification Failed
-        isDenied = true;
-        msg = 'FORGED OR INVALID QR CODE';
-      } else {
-        designatedGate = student.preferredGate || '';
-        if (student.status !== 'active') {
-          isDenied = true;
-          msg = `Pass is ${student.status}`;
-        } else if (!designatedGate) {
-          isDenied = true;
-          msg = 'No gate assigned to this pass. Contact the admin.';
-        } else if (!isGateAllowed(designatedGate)) {
-          isDenied = true;
-          msg = `Wrong gate. Must use: ${designatedGate}`;
-        } else {
-          msg = 'Valid Permanent Pass';
-        }
+        msg = 'Valid Permanent Pass';
       }
     }
 
@@ -951,11 +921,6 @@ export default class AppController {
       result: isDenied ? 'denied' : 'granted',
       passType: passType
     });
-
-    // Mark TGP as used if successful
-    if (passType === 'TGP' && !isDenied) {
-      await this.model.updateTGPStatus(tgp.id, 'used');
-    }
 
     // Render result in Modal
     const resultBox = document.getElementById('scan-result');

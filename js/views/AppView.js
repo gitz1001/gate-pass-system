@@ -6,7 +6,6 @@ import LogsView from './LogsView.js';
 import PGPView from './PGPView.js';
 import ReportsView from './ReportsView.js';
 import SettingsView from './SettingsView.js';
-import TGPView from './TGPView.js';
 import UsersView from './UsersView.js';
 
 // Page definitions for navigation
@@ -20,8 +19,7 @@ const NAV_SECTIONS = [
   {
     title: 'MANAGEMENT',
     items: [
-      { id: 'students', label: 'Student Registry', icon: 'users' },
-      { id: 'tgp', label: 'Temporary Passes', icon: 'clock' }
+      { id: 'students', label: 'Student Registry', icon: 'users' }
     ]
   },
   {
@@ -43,9 +41,9 @@ const NAV_SECTIONS = [
 ];
 
 const ROLE_PERMISSIONS = {
-  admin: ['dashboard', 'students', 'scanner', 'logs', 'pgp', 'reports', 'tgp', 'users', 'settings'],
-  secretary: ['dashboard', 'students', 'tgp', 'logs'],
-  guard: ['dashboard', 'scanner', 'tgp', 'logs']
+  admin: ['dashboard', 'students', 'scanner', 'logs', 'pgp', 'reports', 'users', 'settings'],
+  secretary: ['dashboard', 'students', 'logs'],
+  guard: ['dashboard', 'scanner', 'logs']
 };
 
 // Bottom nav shows only the most-used pages
@@ -62,7 +60,6 @@ const PAGE_TITLES = {
   scanner:   'Gate Scanner',
   logs:      'Exit Logs',
   pgp:       'Permanent Gate Passes',
-  tgp:       'Temporary Gate Passes',
   students:  'Student Registry',
   reports:   'Reports',
   users:     'User Management',
@@ -253,7 +250,7 @@ export default class AppView {
 
   // ── Page Skeleton ───────────────────────────────────────
   renderPageSkeleton(pageId) {
-    if (pageId === 'students' || pageId === 'logs' || pageId === 'tgp' || pageId === 'users') {
+    if (pageId === 'students' || pageId === 'logs' || pageId === 'users') {
       return `
         <div class="card">
           <div class="card-head">
@@ -304,7 +301,6 @@ export default class AppView {
     if (pageId === 'pgp') return PGPView.render(model);
     if (pageId === 'reports') return ReportsView.render(model);
     if (pageId === 'settings') return SettingsView.render(model);
-    if (pageId === 'tgp') return TGPView.render(model);
     if (pageId === 'users') return UsersView.render(model);
     const iconName = NAV_SECTIONS
       .flatMap(s => s.items)

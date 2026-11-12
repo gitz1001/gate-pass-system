@@ -46,8 +46,7 @@ export default class SettingsController {
         const data = {
           exportDate: new Date().toISOString(),
           students: controller.model.students,
-          exitLogs: controller.model.exitLogs,
-          tgp: controller.model.tgp
+          exitLogs: controller.model.exitLogs
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -75,7 +74,7 @@ export default class SettingsController {
         
         const confirmed = await Dialog.confirm(
           'Import Data',
-          'Are you sure you want to import data? This will overwrite existing students, logs, and TGPs. This action cannot be undone.',
+          'Are you sure you want to import data? This will overwrite existing students and logs. This action cannot be undone.',
           { confirmText: 'Yes, Import', type: 'warning' }
         );
         if (confirmed) {
@@ -85,7 +84,6 @@ export default class SettingsController {
               const data = JSON.parse(event.target.result);
               if (data.students) controller.model.students = data.students;
               if (data.exitLogs) controller.model.exitLogs = data.exitLogs;
-              if (data.tgp) controller.model.tgp = data.tgp;
               
               controller.model.cacheAll();
               
@@ -120,7 +118,6 @@ export default class SettingsController {
           if (confirmed2) {
             controller.model.students = [];
             controller.model.exitLogs = [];
-            controller.model.tgp = [];
             controller.model.cacheAll();
             controller.view.showToast('All database records cleared', 'error');
             setTimeout(() => window.location.reload(), 1000);

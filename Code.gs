@@ -34,8 +34,9 @@
 //    highest number then appends; two applications arriving together produced
 //    the same ID. That block now runs under a script lock.
 //
-// 6. updateTGPStatus is POST-only.  A state-changing action is never performed
-//    through GET, preventing a bookmarked/prefetched URL from mutating data.
+// 6. TEMPORARY GATE PASSES REMOVED.  getTGP, addTGP and updateTGPStatus no
+//    longer exist, and getAll no longer reads the 'temporary_passes' tab. The
+//    tab itself is left untouched in the spreadsheet as an archive.
 //
 // 7. UNKNOWN ACTIONS REPORT FAILURE.  They used to come back as
 //    { success: true, data: { error: ... } }, which reads as success.
@@ -88,7 +89,7 @@ function handleRequest(e) {
     var postOnlyActions = {
       addGate: true, updateGate: true, removeGate: true,
       addStudent: true, updateStudent: true, updateStudentStatus: true, removeStudent: true,
-      addLog: true, addTGP: true, updateTGPStatus: true,
+      addLog: true,
       submitApplication: true, uploadPhoto: true
     };
     if (postOnlyActions[action] && (!e || !e.postData || !String(e.postData.contents || '').trim())) {
@@ -102,9 +103,6 @@ function handleRequest(e) {
         break;
       case 'getLogs':
         result = getSheetData('scan_logs');
-        break;
-      case 'getTGP':
-        result = getSheetData('temporary_passes');
         break;
       case 'getUsers':
         result = getSheetData('users');
@@ -133,23 +131,7 @@ function handleRequest(e) {
       case 'addLog':
         result = addRow('scan_logs', readBody_(e));
         break;
-      case 'addTGP':
-        result = addRow('temporary_passes', readBody_(e));
-        break;
-
       // ── UPDATE operations ──
-      case 'updateTGPStatus':
-        // TGP status changes are state-changing operations and must use POST.
-        // This prevents a bookmarked/prefetched GET URL from mutating data.
-        if (!e || !e.postData || !e.postData.contents) {
-          throw new Error('POST request required for updateTGPStatus.');
-        }
-        var tgp = readBody_(e);
-        var tgpId = tgp.id;
-        var tgpStatus = tgp.status;
-        result = updateField('temporary_passes', tgpId, 'status', tgpStatus);
-        break;
-
       case 'updateStudentStatus':
         var statusData = readBody_(e);
         // 'Status' with a capital S, matching the sheet header exactly.
@@ -280,7 +262,6 @@ function getAllData() {
   return {
     students: getSheetDataFromSpreadsheet_(ss, 'students'),
     scan_logs: getSheetDataFromSpreadsheet_(ss, 'scan_logs'),
-    temporary_passes: getSheetDataFromSpreadsheet_(ss, 'temporary_passes'),
     users: getSheetDataFromSpreadsheet_(ss, 'users'),
     gates: ss.getSheetByName('gates') ? getSheetDataFromSpreadsheet_(ss, 'gates') : []
   };
@@ -520,11 +501,10 @@ function findLiveRecord_(sheet, headers, studentId) {
  * Build the next Pass ID for a grade and section, e.g. 26INT09-001.
  * Call this inside a lock — it reads the highest existing number.
  */
-function getPhotoSubfolder_(kind) {
+function getPhotoSubfolder_() {
   var root = DriveApp.getFolderById(PHOTO_FOLDER_ID);
-  var name = String(kind || 'pgp').toLowerCase() === 'tgp' ? 'tgp' : 'pgp';
-  var folders = root.getFoldersByName(name);
-  return folders.hasNext() ? folders.next() : root.createFolder(name);
+  var folders = root.getFoldersByName('pgp');
+  return folders.hasNext() ? folders.next() : root.createFolder('pgp');
 }
 
 function uploadPhotoToDrive(data) {
@@ -538,7 +518,6 @@ function uploadPhotoToDrive_(data) {
   if (String(data.mimeType || '').toLowerCase() !== 'image/webp') {
     throw new Error('Photos must be converted to WebP before upload.');
   }
-  var kind = String(data.kind || 'pgp').toLowerCase() === 'tgp' ? 'tgp' : 'pgp';
   var encoded = String(data.base64).replace(/^data:image\/webp;base64,/i, '').replace(/\s+/g, '');
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length < 16) throw new Error('Photo data is invalid.');
   var bytes = Utilities.base64Decode(encoded);
@@ -548,7 +527,7 @@ function uploadPhotoToDrive_(data) {
   }
   var safeId = String(data.studentId).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 120) || 'photo';
   var fileName = safeId + '.webp';
-  var folder = getPhotoSubfolder_(kind);
+  var folder = getPhotoSubfolder_();
   var existing = folder.getFilesByName(fileName);
   while (existing.hasNext()) existing.next().setTrashed(true);
   var blob = Utilities.newBlob(bytes, 'image/webp', fileName);
@@ -559,7 +538,7 @@ function uploadPhotoToDrive_(data) {
 }
 
 function savePhotoToDrive_(studentId, base64, mimeType, fileName) {
-  return uploadPhotoToDrive_({studentId:studentId, base64:base64, mimeType:'image/webp', fileName:fileName, kind:'pgp'}).url;
+  return uploadPhotoToDrive_({studentId:studentId, base64:base64, mimeType:'image/webp', fileName:fileName}).url;
 }
 
 function generateProperPassId_(sheet, grade, section, schoolYear) {
@@ -814,7 +793,6 @@ function testGetAll() {
   var data = getAllData();
   Logger.log('students: '          + data.students.length);
   Logger.log('scan_logs: '         + data.scan_logs.length);
-  Logger.log('temporary_passes: '  + data.temporary_passes.length);
   Logger.log('users: '             + data.users.length);
   Logger.log('✅ All data read successfully!');
 }
@@ -861,23 +839,6 @@ function testAddLog() {
     passType: 'PGP'
   };
   Logger.log('✅ Log added: ' + JSON.stringify(addRow('scan_logs', sample)));
-}
-
-/**
- * TEST: Add a sample TGP.
- */
-function testAddTGP() {
-  var sample = {
-    id: 'TGP-TEST01',
-    studentId: 'PGP-TEST001',
-    validDate: Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
-    gate: 'Main Gate',
-    reason: 'Medical appointment',
-    requester: 'Test Parent',
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  };
-  Logger.log('✅ TGP added: ' + JSON.stringify(addRow('temporary_passes', sample)));
 }
 
 

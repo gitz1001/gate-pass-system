@@ -146,11 +146,7 @@ export default class DashboardView {
                 <button class="dash-action-btn dash-action-teal" id="dash-btn-enroll">
                   ${Icons['plus'](20)}
                   <span>Enroll Student</span>
-                </button>` : `
-                <button class="dash-action-btn dash-action-teal" id="dash-btn-tgp">
-                  ${Icons['clock'](20)}
-                  <span>Temp Passes</span>
-                </button>`}
+                </button>` : ''}
                 <button class="dash-action-btn" id="dash-btn-quick-logs">
                   ${Icons['file-text'](20)}
                   <span>Exit Logs</span>

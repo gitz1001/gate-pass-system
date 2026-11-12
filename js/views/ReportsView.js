@@ -52,13 +52,6 @@ export default class ReportsView {
     });
     const hourLabels = ['7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM'];
 
-    // ── 5. Pass Types (Today) ──
-    const pgpScans = todayLogs.filter(l => l.passType !== 'TGP').length;
-    const tgpScans = todayLogs.filter(l => l.passType === 'TGP').length;
-    const totalToday = Math.max(todayLogs.length, 1);
-    const pgpPct = Math.round((pgpScans / totalToday) * 100);
-    const tgpPct = Math.round((tgpScans / totalToday) * 100);
-
     // ── 6. Grade Level Distribution ──
     const gradeUsage = {};
     passes.forEach(p => {
@@ -196,33 +189,6 @@ export default class ReportsView {
               </div>
               <div class="card-body" style="padding-top: 0;">
                 ${sortedGates.length === 0 ? '<div style="font-size: 12px; color: var(--text3); text-align: center; padding: 10px;">No gate data yet</div>' : gateBarsHtml}
-              </div>
-            </div>
-
-            <!-- Pass Types Today -->
-            <div class="card" style="flex: 1;">
-              <div class="card-head" style="padding-bottom: 12px;">
-                <div>
-                  <div class="card-title">Today's Pass Types</div>
-                  <div class="card-sub">Permanent vs Temporary passes used today</div>
-                </div>
-                <div style="color: var(--primary);">${Icons['file-text'](20)}</div>
-              </div>
-              <div class="card-body" style="padding-top: 0;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-                  <div style="width: 70px; font-size: 11px; font-weight: 600; color: var(--text);">PGP</div>
-                  <div style="flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden;">
-                    <div style="width: ${pgpPct}%; height: 100%; background: var(--primary); border-radius: 3px;" class="print-bg-exact"></div>
-                  </div>
-                  <div style="width: 40px; text-align: right; font-size: 11px; color: var(--text2);">${pgpScans}</div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="width: 70px; font-size: 11px; font-weight: 600; color: var(--text);">TGP</div>
-                  <div style="flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden;">
-                    <div style="width: ${tgpPct}%; height: 100%; background: var(--orange); border-radius: 3px;" class="print-bg-exact"></div>
-                  </div>
-                  <div style="width: 40px; text-align: right; font-size: 11px; color: var(--text2);">${tgpScans}</div>
-                </div>
               </div>
             </div>
           </div>
