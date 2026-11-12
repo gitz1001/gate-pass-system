@@ -29,7 +29,7 @@ assert(!backend.includes('data.guidelinesAcknowledged'), 'Backend must not valid
 assert(!backend.includes('GuidelinesAcknowledged'), 'Backend must not add or write an acknowledgment column.');
 assert(!backend.includes('GuidelinesVersion'), 'Backend must not add or write a guideline version column.');
 assert(!backend.includes('GuidelinesAcceptedAt'), 'Backend must not record an acceptance timestamp.');
-assert(worker.includes("const CACHE_NAME = 'pgp-cache-v1.4.16'"), 'Service-worker cache version must be bumped.');
+assert(worker.includes("const CACHE_NAME = 'pgp-cache-v1.4.17'"), 'Service-worker cache version must be bumped.');
 assert(worker.includes("'./newForm.html'"), 'Permanent form must be included in the app shell.');
 
 if (failures.length) {

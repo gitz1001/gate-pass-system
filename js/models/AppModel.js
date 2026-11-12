@@ -121,7 +121,8 @@ export default class AppModel {
     // Load cached data from localStorage (instant load)
     this.students = readCache('pgp_students', []);
     this.exitLogs = readCache('pgp_logs', []);
-    this.tgp = readCache('pgp_tgp', []);
+    // Temporary Gate Passes were removed; drop the old cache on devices that still hold it.
+    safeStorageRemove('localStorage', 'pgp_tgp');
     this.users = readCache('pgp_users', []);
     this.gates = readCache('pgp_gates', []);
     this.emailQueue = readCache('pgp_email_queue', []);
@@ -148,7 +149,6 @@ export default class AppModel {
     // while avoiding repeated O(n) scans during dashboard/scanner renders.
     this._studentByPassId = new Map();
     this._studentByStudId = new Map();
-    this._tgpById = new Map();
     this.rebuildIndexes();
   }
 
@@ -176,7 +176,7 @@ export default class AppModel {
 
         // Change detection must account for actual record changes, not only
         // row counts / first / last IDs. The previous lightweight fingerprint
-        // could report `changed: false` when a name, gate, TGP status, QR token,
+        // could report `changed: false` when a name, gate, status, QR token,
         // face descriptor, or other middle-row field changed. That made sync
         // look successful while the current page stayed stale.
         const newHash = this.computeDataHash(data);
@@ -186,7 +186,6 @@ export default class AppModel {
         // Map Sheet columns to frontend field names
         this.students = (data.students || []).map(s => this.mapStudentFromSheet(s));
         this.exitLogs = (data.scan_logs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        this.tgp = data.temporary_passes || [];
         this.users = data.users || [];
         this.gates = (data.gates || []).map(g => this.mapGateFromSheet(g));
         this.rebuildIndexes();
@@ -308,7 +307,6 @@ export default class AppModel {
   cacheAll() {
     writeCache('pgp_students', withoutInlinePhotos(this.students));
     writeCache('pgp_logs', this.exitLogs);
-    writeCache('pgp_tgp', this.tgp);
     writeCache('pgp_users', this.users);
     writeCache('pgp_gates', this.gates);
   }
@@ -335,7 +333,6 @@ export default class AppModel {
   rebuildIndexes() {
     this._studentByPassId.clear();
     this._studentByStudId.clear();
-    this._tgpById.clear();
 
     for (const student of this.students || []) {
       // Preserve the original lookup semantics: getStudentByPassId matched
@@ -350,11 +347,6 @@ export default class AppModel {
         if (key !== undefined && key !== null && !this._studentByStudId.has(key)) {
           this._studentByStudId.set(key, student);
         }
-      }
-    }
-    for (const pass of this.tgp || []) {
-      if (pass.id !== undefined && pass.id !== null && !this._tgpById.has(pass.id)) {
-        this._tgpById.set(pass.id, pass);
       }
     }
   }
@@ -414,7 +406,6 @@ export default class AppModel {
     const str = JSON.stringify({
       students: compactRows(data && data.students),
       scan_logs: compactRows(data && data.scan_logs),
-      temporary_passes: compactRows(data && data.temporary_passes),
       users: compactRows(data && data.users),
       gates: compactRows(data && data.gates)
     });
@@ -445,8 +436,6 @@ export default class AppModel {
       try {
         if (item.action === 'addStudent') await SheetsService.addStudent(item.data);
         else if (item.action === 'addLog') await SheetsService.addLog(item.data);
-        else if (item.action === 'addTGP') await SheetsService.addTGP(item.data);
-        else if (item.action === 'updateTGPStatus') await SheetsService.updateTGPStatus(item.data.id, item.data.status);
         else if (item.action === 'updateStudentStatus') await SheetsService.updateStudentStatus(item.data.id, item.data.status);
         else if (item.action === 'updateStudent') await SheetsService.updateStudent(item.data);
         else if (item.action === 'removeStudent') await SheetsService.removeStudent(item.data.id);
@@ -603,42 +592,6 @@ export default class AppModel {
   async removeEmailFromQueue(index) {
     this.emailQueue.splice(index, 1);
     writeCache('pgp_email_queue', this.emailQueue);
-  }
-
-  // ════════════════════════════════════════════════════════════
-  // TGP CRUD
-  // ════════════════════════════════════════════════════════════
-
-  async addTGP(tgpEntry) {
-    this.tgp.unshift(tgpEntry);
-    if (tgpEntry.id !== undefined && tgpEntry.id !== null) this._tgpById.set(tgpEntry.id, tgpEntry);
-    writeCache('pgp_tgp', this.tgp);
-
-    try {
-      await SheetsService.addTGP(tgpEntry);
-    } catch (err) {
-      console.error('Failed to write TGP to Sheet, queuing...', err);
-      await this.queueWrite('addTGP', tgpEntry);
-    }
-  }
-
-  async updateTGPStatus(id, status) {
-    const pass = this._tgpById.get(id) || this.tgp.find(t => t.id === id);
-    if (pass) {
-      pass.status = status;
-      writeCache('pgp_tgp', this.tgp);
-
-      try {
-        await SheetsService.updateTGPStatus(id, status);
-      } catch (err) {
-        console.error('Failed to update TGP status on Sheet, queuing...', err);
-        await this.queueWrite('updateTGPStatus', { id, status });
-      }
-    }
-  }
-
-  getTGP(id) {
-    return this.tgp.find(t => t.id === id);
   }
 
   // ════════════════════════════════════════════════════════════

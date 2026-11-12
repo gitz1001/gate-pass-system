@@ -64,7 +64,7 @@ module.exports = async function contactHandler(req, res) {
   const message = clean(body.message);
   if (!name || name.length > 120) return res.status(400).json({ success: false, message: 'Enter a name of 1–120 characters.' });
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: 'Enter a valid email address.' });
-  if (!['Gatepass application','Temporary gate pass','Portal access','Other question'].includes(topic)) return res.status(400).json({ success: false, message: 'Choose a valid message topic.' });
+  if (!['Gatepass application','Portal access','Other question'].includes(topic)) return res.status(400).json({ success: false, message: 'Choose a valid message topic.' });
   if (message.length < 10 || message.length > 3000) return res.status(400).json({ success: false, message: 'Message must be between 10 and 3,000 characters.' });
   if (/[\r\n]/.test(email)) return res.status(400).json({ success: false, message: 'Invalid email address.' });
 

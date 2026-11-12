@@ -2,6 +2,10 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/tgpForm", "destination": "/", "permanent": true },
+    { "source": "/tgpForm.html", "destination": "/", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/api/send-email.php",

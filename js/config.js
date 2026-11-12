@@ -35,7 +35,6 @@ export const STORAGE_KEYS = {
   browserAlive: 'pgp_browser_alive',
   students: 'pgp_students',
   logs: 'pgp_logs',
-  tgp: 'pgp_tgp',
   users: 'pgp_users',
   emailQueue: 'pgp_email_queue',
   writeQueue: 'pgp_write_queue',

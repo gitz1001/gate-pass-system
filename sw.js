@@ -11,7 +11,7 @@
 //     no longer abort the whole install (cache.addAll is all-or-nothing).
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'pgp-cache-v1.4.16';
+const CACHE_NAME = 'pgp-cache-v1.4.17';
 
 // Files that make up the app shell — always revalidated against the network.
 //
@@ -25,7 +25,6 @@ const APP_SHELL = [
   './app',
   './index.html',
   './app.html',
-  './tgpForm.html',
   './newForm.html',
   './css/styles.css',
   './css/landing.css',
@@ -50,7 +49,6 @@ const APP_SHELL = [
   './js/controllers/pages/ScannerController.js',
   './js/controllers/pages/LogsController.js',
   './js/controllers/pages/PGPController.js',
-  './js/controllers/pages/TGPController.js',
   './js/controllers/pages/SettingsController.js',
   './js/controllers/pages/ReportsController.js',
 
@@ -61,7 +59,6 @@ const APP_SHELL = [
   './js/views/ScannerView.js',
   './js/views/LogsView.js',
   './js/views/PGPView.js',
-  './js/views/TGPView.js',
   './js/views/ReportsView.js',
   './js/views/SettingsView.js',
   './js/views/UsersView.js'
@@ -146,7 +143,6 @@ self.addEventListener('fetch', event => {
   // Matches both the clean route and the extension, since cleanUrls serves
   // this page at /newForm and redirects /newForm.html to it.
   if (url.pathname.endsWith('/newForm') || url.pathname.endsWith('/newForm.html')) return;
-  if (url.pathname.endsWith('/tgpForm') || url.pathname.endsWith('/tgpForm.html')) return;
   // Nor our own serverless API — those responses must never be cached.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 

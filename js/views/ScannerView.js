@@ -11,7 +11,7 @@ export default class ScannerView {
     const scansCount = todayLogs.length;
     const grantedCount = todayLogs.filter(l => l.result === 'granted').length;
     const deniedCount = todayLogs.filter(l => l.result === 'denied').length;
-    const tgpScansCount = todayLogs.filter(l => l.passType === 'TGP').length;
+    const studentsOutCount = new Set(todayLogs.filter(l => l.result === 'granted').map(l => l.studentId)).size;
 
     return `
       <div class="kpi-strip">
@@ -28,8 +28,8 @@ export default class ScannerView {
           <div class="kpi-info"><div class="kpi-val">${deniedCount}</div><div class="kpi-lbl">Denied</div></div>
         </div>
         <div class="kpi-card kpi-blue">
-          <div class="kpi-icon">${Icons['file-text'](20)}</div>
-          <div class="kpi-info"><div class="kpi-val">${tgpScansCount}</div><div class="kpi-lbl">TGP Scans</div></div>
+          <div class="kpi-icon">${Icons['users'](20)}</div>
+          <div class="kpi-info"><div class="kpi-val">${studentsOutCount}</div><div class="kpi-lbl">Students Out</div></div>
         </div>
       </div>
 

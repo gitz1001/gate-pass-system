@@ -315,7 +315,7 @@ export function resolvePhotoUrl(photoValue) {
   // records already in Sheets are still data URIs. Dropping this branch — as
   // the Blob migration did — did not merely skip an old format: it blanked the
   // photo of every student enrolled before the switch, on the dashboard, the
-  // students grid, the scanner result, the PGP/TGP rows and the ID card, while
+  // students grid, the scanner result, the PGP rows and the ID card, while
   // the newer Blob-hosted photos kept working. Both shapes are valid <img>
   // sources and both have to render.
   //
@@ -385,7 +385,7 @@ export function hasPhoto(photoValue) {
  * @param {Blob} imageBlob — image bytes to upload
  * @returns {Promise<string>} The saved Blob URL
  */
-export async function uploadPhotoLocally(studentId, imageBlob, kind = 'pgp') {
+export async function uploadPhotoLocally(studentId, imageBlob) {
   if (!studentId || !imageBlob || typeof imageBlob.size !== 'number' || typeof imageBlob.arrayBuffer !== 'function') {
     throw new Error('A student ID and image file are required.');
   }
@@ -399,7 +399,6 @@ export async function uploadPhotoLocally(studentId, imageBlob, kind = 'pgp') {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({
       studentId: String(studentId),
-      kind: kind === 'tgp' ? 'tgp' : 'pgp',
       base64: base64,
       mimeType: 'image/webp',
       fileName: String(studentId) + '.webp'

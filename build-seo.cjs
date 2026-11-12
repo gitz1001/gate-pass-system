@@ -28,7 +28,7 @@ if (verification && !/^[A-Za-z0-9_-]{10,200}$/.test(verification)) throw new Err
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 const staticFiles = [
-  'index.html','app.html','newForm.html','tgpForm.html','privacy-policy.html','terms-of-service.html','404.html',
+  'index.html','app.html','newForm.html','privacy-policy.html','terms-of-service.html','404.html',
   'manifest.json','sw.js','logo.png','logo.webp','SISC_logo.png','SISC_logo.webp','Southville.webp',
   'PGP_Card_1784540906451.png','PGP_Card_1784540906451.webp','PGP_Card_1784609066593.png','PGP_Card_1784609066593.webp','og-image.jpg'
 ];
@@ -47,7 +47,7 @@ for (const dir of ['css','js']) {
 }
 // Required for already-offline-capable face/QR features. These remain static assets.
 
-const htmlFiles = ['index.html','app.html','newForm.html','tgpForm.html','privacy-policy.html','terms-of-service.html','404.html'];
+const htmlFiles = ['index.html','app.html','newForm.html','privacy-policy.html','terms-of-service.html','404.html'];
 for (const file of htmlFiles) {
   const target = path.join(OUT, file);
   let html = fs.readFileSync(target, 'utf8').replaceAll('__SEO_SITE_URL__', siteUrl).replaceAll('__GA_MEASUREMENT_ID__', gaId);

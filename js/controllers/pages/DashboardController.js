@@ -23,14 +23,12 @@ export default class DashboardController {
     const btnQuickLogs = document.getElementById('dash-btn-quick-logs');
     const btnViewAll = document.getElementById('dash-btn-logs');
     const btnReports = document.getElementById('dash-btn-reports');
-    const btnTgp = document.getElementById('dash-btn-tgp');
     const btnSettings = document.getElementById('dash-btn-settings');
 
     if (btnScan) btnScan.addEventListener('click', () => controller.navigateToPage('scanner'));
     if (btnQuickLogs) btnQuickLogs.addEventListener('click', () => controller.navigateToPage('logs'));
     if (btnViewAll) btnViewAll.addEventListener('click', () => controller.navigateToPage('logs'));
     if (btnReports) btnReports.addEventListener('click', () => controller.navigateToPage('reports'));
-    if (btnTgp) btnTgp.addEventListener('click', () => controller.navigateToPage('tgp'));
     if (btnSettings) btnSettings.addEventListener('click', () => controller.navigateToPage('settings'));
     if (btnEnroll) btnEnroll.addEventListener('click', () => {
       controller.navigateToPage('students');

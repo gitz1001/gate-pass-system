@@ -10,7 +10,7 @@ Built for **SISC**.
 
 ### 🔐 Role-Based Access Control (RBAC)
 - **Admin**: Full system control, user management, and advanced settings.
-- **Secretary**: Student enrollment, Temporary Gate Pass (TGP) issuance, and reporting.
+- **Secretary**: Student enrollment and exit logs.
 - **Guard**: Access restricted to the live Gate Scanner and exit feed.
 
 ### 📶 Offline-First PWA & Cloud Sync
@@ -18,11 +18,9 @@ Built for **SISC**.
 - **Cloud Database Engine**: Seamlessly synchronizes data with Google Sheets for secure, centralized storage.
 - **Offline Email Queuing**: Automatically queues parent email notifications when offline, sending them in the background once internet connectivity is restored.
 
-### 🎓 Student Enrollment & TGP
+### 🎓 Student Enrollment
 - Register students with complete dismissal arrangements (Fetched, Independent, School Bus).
 - Upload student photos for secure visual verification.
-- Issue Temporary Gate Passes (TGP) for visitors or one-time student exits.
-
 ### 📱 Advanced Gate Scanner
 - **Camera Scanning**: Point at a student's QR code for instant, contactless verification.
 - **USB Scanner Integration**: Native support for USB-based barcode or RFID scanners.

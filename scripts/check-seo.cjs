@@ -76,7 +76,7 @@ for (const [file, title, h1Count] of publicPages) {
   assert(hasMetaTag(html, 'og:image'), `${file}: missing OG image metadata`);
 }
 
-for (const file of ['app.html', 'newForm.html', 'tgpForm.html', '404.html']) {
+for (const file of ['app.html', 'newForm.html', '404.html']) {
   const html = readRequiredText(file);
   if (!html) continue;
 
